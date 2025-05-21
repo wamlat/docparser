@@ -1,0 +1,7 @@
+This is a test file for uploading.
+Order ID: TEST123
+Customer: John Doe
+Items:
+- SKU: ABC-001, Quantity: 2, Price: $10.00
+- SKU: XYZ-002, Quantity: 1, Price: $15.50
+Shipping Address: 123 Main St, Anytown, USA 12345 
