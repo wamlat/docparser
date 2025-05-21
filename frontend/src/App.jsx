@@ -1,7 +1,10 @@
 import React, { useState, useRef } from 'react';
-import axios from 'axios';
+import FileUpload from './components/FileUpload';
+import ResultsDisplay from './components/ResultsDisplay';
+import LlmToggle from './components/LlmToggle';
+import './App.css';
 
-// Updated to use the Vite proxy configuration
+// Using the Vite proxy configuration
 const API_BASE_URL = '/api';
 
 function App() {
@@ -10,22 +13,8 @@ function App() {
   const [extractedText, setExtractedText] = useState('');
   const [parsedData, setParsedData] = useState(null);
   const [error, setError] = useState('');
+  const [useLlm, setUseLlm] = useState(false);
   const fileInputRef = useRef(null);
-
-  const testApiConnection = async () => {
-    try {
-      // Test the root endpoint
-      const timestamp = new Date().getTime();
-      const response = await axios.get(`${API_BASE_URL}/?t=${timestamp}`);
-      console.log('API Connection Test Result:', response.data);
-      alert(`API Connection Successful!\nResponse: ${JSON.stringify(response.data)}`);
-      return true;
-    } catch (error) {
-      console.error('API Connection Test Failed:', error);
-      alert(`API Connection Failed!\nError: ${error.message}\nPlease check the console for details.`);
-      return false;
-    }
-  };
 
   const handleFileChange = (event) => {
     const selectedFile = event.target.files[0];
@@ -64,21 +53,36 @@ function App() {
 
     try {
       // Upload the file
-      const uploadResponse = await axios.post(`${API_BASE_URL}/upload`, formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data'
-        }
+      const uploadResponse = await fetch(`${API_BASE_URL}/upload`, {
+        method: 'POST',
+        body: formData
       });
-
-      console.log('Upload response:', uploadResponse.data);
-      setExtractedText(uploadResponse.data.extraction.text);
-
-      // Add a timestamp to prevent browser/server caching
-      const timestamp = new Date().getTime();
-      // Parse the document - force fresh parse with timestamp
-      const parseResponse = await axios.get(`${API_BASE_URL}/parse?t=${timestamp}`);
-      console.log('Parse response:', parseResponse.data);
-      setParsedData(parseResponse.data.parsed_data);
+      
+      if (!uploadResponse.ok) {
+        throw new Error(`Upload failed: ${uploadResponse.statusText}`);
+      }
+      
+      // Then parse the document with the appropriate query parameter
+      const parseUrl = new URL(`${API_BASE_URL}/parse`);
+      parseUrl.searchParams.append('t', new Date().getTime()); // Cache busting
+      if (useLlm) {
+        parseUrl.searchParams.append('llm', 'true');
+      }
+      
+      const parseResponse = await fetch(parseUrl);
+      if (!parseResponse.ok) {
+        throw new Error(`Parsing failed: ${parseResponse.statusText}`);
+      }
+      
+      const result = await parseResponse.json();
+      console.log('Parsed data:', result);
+      
+      if (result.error) {
+        throw new Error(result.error);
+      }
+      
+      setParsedData(result.parsed_data);
+      setExtractedText(result.text);
       
     } catch (err) {
       console.error('Error:', err);
@@ -86,6 +90,11 @@ function App() {
     } finally {
       setUploading(false);
     }
+  };
+
+  const handleLlmToggle = (isEnabled) => {
+    setUseLlm(isEnabled);
+    console.log("LLM mode set to:", isEnabled);
   };
 
   const hasWarnings = (item) => {
@@ -116,42 +125,14 @@ function App() {
       <h1 className="text-3xl font-bold text-center mb-8">Intelligent Order Document Parser</h1>
       
       <div className="max-w-4xl mx-auto bg-white rounded-lg shadow-md p-6">
-        <div className="mb-4 flex justify-end">
-          <button 
-            className="bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded mr-2"
-            onClick={testApiConnection}
-          >
-            Test API Connection
-          </button>
-        </div>
+        <LlmToggle onToggle={handleLlmToggle} />
         
-        <div 
-          className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center cursor-pointer hover:border-blue-500 transition-colors"
-          onDragOver={handleDragOver}
-          onDrop={handleDrop}
-          onClick={() => fileInputRef.current?.click()}
-        >
-          <p className="text-gray-500 mb-2">
-            {file ? `Selected file: ${file.name}` : 'Drag and drop your document here'}
-          </p>
-          <p className="text-gray-400 text-sm">Supported formats: PDF, PNG, JPG, TXT</p>
-          <input 
-            type="file" 
-            ref={fileInputRef}
-            onChange={handleFileChange} 
-            accept=".pdf,.png,.jpg,.jpeg,.txt"
-            className="hidden" 
-          />
-          <button 
-            className="mt-4 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded"
-            onClick={(e) => {
-              e.stopPropagation();
-              fileInputRef.current?.click();
-            }}
-          >
-            Or select a file
-          </button>
-        </div>
+        <FileUpload 
+          file={file}
+          setFile={setFile}
+          onUpload={handleUpload}
+          uploading={uploading}
+        />
         
         {error && (
           <div className="mt-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
@@ -159,114 +140,10 @@ function App() {
           </div>
         )}
         
-        <div className="mt-4 flex justify-center">
-          <button 
-            className="bg-green-500 hover:bg-green-600 text-white px-6 py-2 rounded disabled:bg-gray-300"
-            onClick={handleUpload}
-            disabled={!file || uploading}
-          >
-            {uploading ? 'Processing...' : 'Upload & Parse'}
-          </button>
-        </div>
-        
-        {extractedText && (
-          <div className="mt-8">
-            <h2 className="text-xl font-semibold mb-2">Extracted Text</h2>
-            <div className="border rounded-lg p-4 bg-gray-50">
-              <pre className="whitespace-pre-wrap text-sm">{extractedText}</pre>
-            </div>
-          </div>
-        )}
-        
-        {parsedData && (
-          <div className="mt-8">
-            <h2 className="text-xl font-semibold mb-2">Parsed Data</h2>
-            <div className="border rounded-lg p-4 bg-gray-50">
-              <div className="grid grid-cols-2 gap-4 mb-4">
-                <div className={`p-2 border rounded ${getFieldWarningClass('customer')}`}>
-                  <strong>Customer:</strong> {parsedData.customer}
-                  {parsedData.extraction_details?.customer?.warning && (
-                    <span className="ml-2 text-yellow-600 text-xs">⚠️ Low confidence</span>
-                  )}
-                </div>
-                <div className={`p-2 border rounded ${getFieldWarningClass('order_id')}`}>
-                  <strong>Order ID:</strong> {parsedData.order_id}
-                  {parsedData.extraction_details?.order_id?.warning && (
-                    <span className="ml-2 text-yellow-600 text-xs">⚠️ Low confidence</span>
-                  )}
-                </div>
-                <div className={`p-2 border rounded col-span-2 ${getFieldWarningClass('shipping_address')}`}>
-                  <strong>Shipping Address:</strong> {parsedData.shipping_address}
-                  {parsedData.extraction_details?.shipping_address?.warning && (
-                    <span className="ml-2 text-yellow-600 text-xs">⚠️ Low confidence</span>
-                  )}
-                </div>
-              </div>
-              
-              <h3 className="font-semibold mb-2">Line Items</h3>
-              <table className="w-full border-collapse">
-                <thead>
-                  <tr className="bg-gray-200">
-                    <th className="border p-2 text-left">SKU</th>
-                    <th className="border p-2 text-left">Quantity</th>
-                    <th className="border p-2 text-left">Price</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {parsedData.line_items.map((item, index) => (
-                    <tr key={index}>
-                      <td className={`border p-2 ${getLineItemWarningClass(parsedData.extraction_details?.line_items[index], 'sku')}`}>
-                        {item.sku}
-                        {parsedData.extraction_details?.line_items[index]?.sku?.warning && (
-                          <span className="ml-2 text-yellow-600 text-xs">⚠️</span>
-                        )}
-                      </td>
-                      <td className={`border p-2 ${getLineItemWarningClass(parsedData.extraction_details?.line_items[index], 'quantity')}`}>
-                        {item.quantity}
-                        {parsedData.extraction_details?.line_items[index]?.quantity?.warning && (
-                          <span className="ml-2 text-yellow-600 text-xs">⚠️</span>
-                        )}
-                      </td>
-                      <td className={`border p-2 ${getLineItemWarningClass(parsedData.extraction_details?.line_items[index], 'price')}`}>
-                        ${item.price.toFixed(2)}
-                        {parsedData.extraction_details?.line_items[index]?.price?.warning && (
-                          <span className="ml-2 text-yellow-600 text-xs">⚠️</span>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              
-              <div className="mt-4">
-                <strong>Overall Confidence:</strong> 
-                <div className="w-full bg-gray-200 rounded-full h-2.5 mt-1">
-                  <div 
-                    className={`h-2.5 rounded-full ${
-                      parsedData.confidence.overall >= 0.8 ? 'bg-green-500' :
-                      parsedData.confidence.overall >= 0.6 ? 'bg-yellow-500' : 'bg-red-500'
-                    }`}
-                    style={{ width: `${parsedData.confidence.overall * 100}%` }}
-                  ></div>
-                </div>
-                <div className="text-right text-sm text-gray-500">
-                  {(parsedData.confidence.overall * 100).toFixed(0)}%
-                </div>
-              </div>
-              
-              <div className="mt-4 flex justify-end">
-                <a 
-                  href={`${API_BASE_URL}/download?t=${new Date().getTime()}`}
-                  className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  Download JSON
-                </a>
-              </div>
-            </div>
-          </div>
-        )}
+        <ResultsDisplay 
+          parsedData={parsedData}
+          extractedText={extractedText}
+        />
       </div>
     </div>
   );

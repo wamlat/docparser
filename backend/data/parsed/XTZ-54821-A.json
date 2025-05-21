@@ -1,0 +1,78 @@
+{
+  "customer": "Zephyr Global Logistics",
+  "order_id": "XTZ-54821-A",
+  "shipping_address": "940 Industrial Drive, Building B, Suite 204, Phoenix, AZ 85009",
+  "line_items": [
+    {
+      "sku": "FNS-3348",
+      "quantity": 3,
+      "price": 8.75
+    },
+    {
+      "sku": "TRC-1280-BLK",
+      "quantity": 10,
+      "price": 45.0
+    }
+  ],
+  "confidence": {
+    "customer": 0.85,
+    "order_id": 0.85,
+    "shipping_address": 0.85,
+    "line_items": 0.85,
+    "overall": 0.85
+  },
+  "extraction_details": {
+    "customer": {
+      "value": "Zephyr Global Logistics",
+      "confidence": 0.85,
+      "source": "llm"
+    },
+    "order_id": {
+      "value": "XTZ-54821-A",
+      "confidence": 0.85,
+      "source": "llm"
+    },
+    "shipping_address": {
+      "value": "940 Industrial Drive, Building B, Suite 204, Phoenix, AZ 85009",
+      "confidence": 0.85,
+      "source": "llm"
+    },
+    "line_items": [
+      {
+        "sku": {
+          "value": "FNS-3348",
+          "confidence": 0.85,
+          "source": "llm"
+        },
+        "quantity": {
+          "value": 3,
+          "confidence": 0.85,
+          "source": "llm"
+        },
+        "price": {
+          "value": 8.75,
+          "confidence": 0.85,
+          "source": "llm"
+        }
+      },
+      {
+        "sku": {
+          "value": "TRC-1280-BLK",
+          "confidence": 0.85,
+          "source": "llm"
+        },
+        "quantity": {
+          "value": 10,
+          "confidence": 0.85,
+          "source": "llm"
+        },
+        "price": {
+          "value": 45.0,
+          "confidence": 0.85,
+          "source": "llm"
+        }
+      }
+    ]
+  },
+  "source": "llm"
+}

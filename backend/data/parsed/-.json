@@ -1,0 +1,78 @@
+{
+  "customer": "Greentech Labs",
+  "order_id": "-",
+  "shipping_address": "Greentech Labs, 620 Ocean Blvd, Santa Monica, CA 90401",
+  "line_items": [
+    {
+      "sku": "HTR-1204",
+      "quantity": 12,
+      "price": 32.0
+    },
+    {
+      "sku": "UVC-0988",
+      "quantity": 6,
+      "price": 79.99
+    }
+  ],
+  "confidence": {
+    "customer": 0.75,
+    "order_id": 0.95,
+    "shipping_address": 0.92,
+    "line_items": 0.85,
+    "overall": 0.8675
+  },
+  "extraction_details": {
+    "customer": {
+      "value": "Greentech Labs",
+      "confidence": 0.75,
+      "source": "regex-warehouse",
+      "warning": true
+    },
+    "order_id": {
+      "value": "-",
+      "confidence": 0.95,
+      "source": "regex"
+    },
+    "shipping_address": {
+      "value": "Greentech Labs, 620 Ocean Blvd, Santa Monica, CA 90401",
+      "confidence": 0.92,
+      "source": "regex-multi"
+    },
+    "line_items": [
+      {
+        "sku": {
+          "value": "HTR-1204",
+          "confidence": 0.85,
+          "source": "regex-informal"
+        },
+        "quantity": {
+          "value": 12,
+          "confidence": 0.85,
+          "source": "regex-informal"
+        },
+        "price": {
+          "value": 32.0,
+          "confidence": 0.85,
+          "source": "regex-informal"
+        }
+      },
+      {
+        "sku": {
+          "value": "UVC-0988",
+          "confidence": 0.85,
+          "source": "regex-informal"
+        },
+        "quantity": {
+          "value": 6,
+          "confidence": 0.85,
+          "source": "regex-informal"
+        },
+        "price": {
+          "value": 79.99,
+          "confidence": 0.85,
+          "source": "regex-informal"
+        }
+      }
+    ]
+  }
+}

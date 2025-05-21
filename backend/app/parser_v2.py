@@ -3,6 +3,8 @@ import torch
 from transformers import AutoTokenizer, AutoModelForTokenClassification
 import numpy as np
 from app.ner_model import predict_entities, group_entities
+import os
+from app.parser_stats import increment_llm_forced_counter, increment_ner_counter, increment_llm_fallback_counter
 
 # Constants
 CONFIDENCE_THRESHOLD = 0.7  # Confidence threshold for warnings
@@ -283,8 +285,19 @@ def extract_entities(text):
         if len(address_lines) > 1 and structured_data["customer"]["value"] and address_lines[0].strip() == structured_data["customer"]["value"]:
             address_lines = address_lines[1:]
         
-        # Join the remaining lines
-        full_address = ', '.join(line.strip() for line in address_lines if line.strip())
+        # Filter lines to only include those starting with capital letters or numbers (proper address format)
+        filtered_address_lines = []
+        for line in address_lines:
+            line_strip = line.strip()
+            # Only include lines that start with capital letters or numbers
+            if line_strip and re.match(r"^[A-Z0-9]", line_strip):
+                filtered_address_lines.append(line_strip)
+            # Stop at indicators like "Ref #:" or "Thanks"
+            elif line_strip.startswith(("Ref #:", "Thanks")):
+                break
+        
+        # Join the filtered lines
+        full_address = ', '.join(filtered_address_lines)
         structured_data["shipping_address"]["value"] = full_address
         structured_data["shipping_address"]["confidence"] = 0.92
         structured_data["shipping_address"]["source"] = "regex-multi"
@@ -292,7 +305,20 @@ def extract_entities(text):
         # Fallback to basic address pattern if no section found
         address_match = re.search(r'(?:shipping|delivery)?\s*address\s*[\:\#]?\s*([a-zA-Z0-9\s\,\-\.]+(?:$|\n))', text, re.IGNORECASE)
         if address_match:
-            structured_data["shipping_address"]["value"] = address_match.group(1).strip()
+            # Extract the address and filter it
+            address_text = address_match.group(1).strip()
+            address_lines = address_text.split('\n')
+            
+            # Filter to only include lines starting with capital letters or numbers
+            filtered_address_lines = []
+            for line in address_lines:
+                line_strip = line.strip()
+                if line_strip and re.match(r"^[A-Z0-9]", line_strip):
+                    filtered_address_lines.append(line_strip)
+                elif line_strip.startswith(("Ref #:", "Thanks")):
+                    break
+                
+            structured_data["shipping_address"]["value"] = ', '.join(filtered_address_lines)
             structured_data["shipping_address"]["confidence"] = 0.85
             structured_data["shipping_address"]["source"] = "regex"
     
@@ -440,7 +466,8 @@ def extract_entities(text):
             r'(?:Order|PO)[:\s]*([A-Z0-9\-]+)',  # Order: ABC-1234
             r'(?:Order|PO)[:\s\#]*([A-Z0-9\-]+)',  # PO# ABC-1234
             r'(?<![a-zA-Z])(?:PO|ORDER)[:\s\-]*([A-Z0-9\-]+)',  # ORDER-ABC-1234
-            r'(?:^|\n)(?:PO|Order)[\:\s\-\#]*([A-Za-z0-9\-]+)'  # Beginning of line: Order ABC-1234
+            r'(?:^|\n)(?:PO|Order)[\:\s\-\#]*([A-Za-z0-9\-]+)',  # Beginning of line: Order ABC-1234
+            r'Ref\s*#[:\s]*([A-Z0-9\-]+)'  # Ref #: ABC-1234
         ]
         
         for pattern in po_patterns:
@@ -452,6 +479,19 @@ def extract_entities(text):
                 structured_data["order_id"]["source"] = "regex-fallback"
                 structured_data["order_id"]["confidence"] = 0.9
                 break
+    
+    # Add informal line item regex pattern
+    # Example: "12x of HTR-1204 @ $32.00"
+    informal_items = re.findall(r"(\d+)[xX]\s+of\s+([A-Z0-9\-]+)\s+@\s+\$?(\d+\.?\d*)", text, re.IGNORECASE)
+    for qty, sku, price in informal_items:
+        # Create line item from informal pattern
+        line_item = {
+            "sku": {"value": sku.strip(), "confidence": 0.85, "source": "regex-informal"},
+            "quantity": {"value": int(qty), "confidence": 0.85, "source": "regex-informal"},
+            "price": {"value": float(price), "confidence": 0.85, "source": "regex-informal"}
+        }
+        structured_data["line_items"].append(line_item)
+        print(f"Found informal line item: {qty}x of {sku} @ ${price}")
     
     return structured_data
 
@@ -466,6 +506,24 @@ def parse_order_document(text):
         dict: Structured order data
     """
     print("\n===== DEBUG: Starting parse_order_document (PARSER_V2) =====")
+    
+    # Check if we should use LLM parser directly
+    try:
+        from app.llm_fallback import USE_LLM_PARSER, parse_with_llm
+        
+        # Get confidence threshold from environment (default 0.6)
+        CONFIDENCE_THRESHOLD = float(os.environ.get("CONFIDENCE_THRESHOLD", "0.6"))
+        
+        if USE_LLM_PARSER:
+            print("USE_LLM_PARSER flag is enabled, using LLM parser directly")
+            increment_llm_forced_counter()  # Track forced LLM usage
+            return parse_with_llm(text)
+    except ImportError:
+        print("LLM fallback module not available, continuing with standard parsing")
+        CONFIDENCE_THRESHOLD = 0.6  # Default if module not available
+    except ValueError:
+        print("Invalid CONFIDENCE_THRESHOLD value in environment, using default 0.6")
+        CONFIDENCE_THRESHOLD = 0.6  # Default if value is invalid
     
     # Extract structured data from text
     structured_data = extract_entities(text)
@@ -506,7 +564,9 @@ def parse_order_document(text):
             "Part #", 
             "SKU", 
             "Quantity",
-            "Item #"
+            "Item #",
+            "Ref #:",  # Added indicator for "Ref #"
+            "Thanks"   # Added indicator for "Thanks"
         ]
         
         # Find where any line item indicator starts
@@ -528,12 +588,43 @@ def parse_order_document(text):
             address = address[:cutoff_idx].strip()
             print(f"Trimmed address at index {cutoff_idx}")
         
+        # Additional filtering for properly formatted address lines
+        address_parts = [part.strip() for part in address.split(',')]
+        filtered_parts = []
+        
+        for part in address_parts:
+            # Only keep parts that start with capital letters or numbers (proper address format)
+            if part and re.match(r"^[A-Z0-9]", part):
+                filtered_parts.append(part)
+            # Stop at blank lines or informal phrases
+            elif part.lower().startswith(("our warehouse", "your warehouse", "ref #", "thanks", "reference")):
+                print(f"Stopping at informal phrase: '{part}'")
+                break
+        
         # Cleanup: remove trailing commas and normalize whitespace
+        address = ', '.join(filtered_parts)
         address = re.sub(r',\s*$', '', address)
         address = re.sub(r'\s+', ' ', address).strip()
         print(f"Cleaned shipping address: '{address}'")
         
         structured_data["shipping_address"]["value"] = address
+    
+    # Add fallback for customer name based on "Ship to" or "warehouse:"
+    if not structured_data["customer"]["value"] or structured_data["customer"]["confidence"] < 0.7:
+        # Look for informal customer references like "Ship to" or "warehouse:"
+        ship_to_match = re.search(r'ship\s+to\s*[:\s]*([A-Za-z0-9\s\,]+?)(?=\n|\r|$)', text, re.IGNORECASE)
+        warehouse_match = re.search(r'(?:our|your)\s+warehouse[:\s]*([A-Za-z0-9\s\,]+?)(?=\n|\r|$)', text, re.IGNORECASE)
+        
+        if ship_to_match:
+            structured_data["customer"]["value"] = ship_to_match.group(1).strip()
+            structured_data["customer"]["confidence"] = 0.8
+            structured_data["customer"]["source"] = "regex-ship-to"
+            print(f"Found customer name from 'Ship to': {structured_data['customer']['value']}")
+        elif warehouse_match:
+            structured_data["customer"]["value"] = warehouse_match.group(1).strip()
+            structured_data["customer"]["confidence"] = 0.75
+            structured_data["customer"]["source"] = "regex-warehouse"
+            print(f"Found customer name from warehouse reference: {structured_data['customer']['value']}")
     
     # Flatten the output for backward compatibility
     flat_output = {
@@ -571,7 +662,6 @@ def parse_order_document(text):
     print("Final output SKUs:")
     for i, item in enumerate(flat_output["line_items"]):
         print(f"Final Item {i}: SKU='{item['sku']}'")
-    print("===== DEBUG: Finished parse_order_document (PARSER_V2) =====\n")
     
     # Calculate confidence scores
     confidence = {
@@ -595,4 +685,43 @@ def parse_order_document(text):
         "line_items": structured_data["line_items"]
     }
     
+    print("===== DEBUG: Finished parse_order_document (PARSER_V2) =====\n")
+    
+    # Check if we should use LLM fallback based on confidence threshold
+    try:
+        # Only use LLM fallback if confidence is below threshold
+        from app.llm_fallback import parse_with_llm
+        from app.parser_stats import increment_llm_fallback_counter
+        
+        if confidence["overall"] < CONFIDENCE_THRESHOLD:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.info(f"LLM fallback parser used due to low confidence: {confidence['overall']:.2f} (threshold: {CONFIDENCE_THRESHOLD})")
+            
+            # Call LLM parser
+            llm_result = parse_with_llm(text)
+            
+            # Use LLM result if it was successful (no error in result)
+            if llm_result and "error" not in llm_result:
+                print(f"Using LLM fallback parser result due to low confidence ({confidence['overall']:.2f} < {CONFIDENCE_THRESHOLD})")
+                increment_llm_fallback_counter()  # Track LLM fallback usage
+                return llm_result
+            else:
+                # Log the error but use original result
+                print(f"LLM fallback parser failed. Using original result despite low confidence.")
+                if llm_result and "error" in llm_result:
+                    error_msg = llm_result["error"]
+                    if "rate limit" in error_msg.lower() or "429" in error_msg:
+                        logger.warning(f"OpenAI API rate limit error: {error_msg}. Continuing with standard parser results.")
+                    else:
+                        logger.error(f"LLM fallback error: {error_msg}")
+    except ImportError:
+        print("LLM fallback module not available for confidence check")
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error using LLM fallback parser: {str(e)}")
+    
+    # If we reach here, we're using NER/regex parser results
+    increment_ner_counter()  # Track NER usage
     return flat_output 

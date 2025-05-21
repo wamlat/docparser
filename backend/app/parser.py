@@ -339,8 +339,19 @@ def extract_entities(text):
         if len(address_lines) > 1 and structured_data["customer"]["value"] and address_lines[0].strip() == structured_data["customer"]["value"]:
             address_lines = address_lines[1:]
         
-        # Join the remaining lines
-        full_address = ', '.join(line.strip() for line in address_lines if line.strip())
+        # Filter lines to only include those starting with capital letters or numbers (proper address format)
+        filtered_address_lines = []
+        for line in address_lines:
+            line_strip = line.strip()
+            # Only include lines that start with capital letters or numbers
+            if line_strip and re.match(r"^[A-Z0-9]", line_strip):
+                filtered_address_lines.append(line_strip)
+            # Stop at indicators like "Ref #:" or "Thanks"
+            elif line_strip.startswith(("Ref #:", "Thanks")):
+                break
+        
+        # Join the filtered lines
+        full_address = ', '.join(filtered_address_lines)
         structured_data["shipping_address"]["value"] = full_address
         structured_data["shipping_address"]["confidence"] = 0.92
         structured_data["shipping_address"]["source"] = "regex-multi"
@@ -348,7 +359,20 @@ def extract_entities(text):
         # Fallback to basic address pattern if no section found
         address_match = re.search(r'(?:shipping|delivery)?\s*address\s*[\:\#]?\s*([a-zA-Z0-9\s\,\-\.]+(?:$|\n))', text, re.IGNORECASE)
         if address_match:
-            structured_data["shipping_address"]["value"] = address_match.group(1).strip()
+            # Extract the address and filter it
+            address_text = address_match.group(1).strip()
+            address_lines = address_text.split('\n')
+            
+            # Filter to only include lines starting with capital letters or numbers
+            filtered_address_lines = []
+            for line in address_lines:
+                line_strip = line.strip()
+                if line_strip and re.match(r"^[A-Z0-9]", line_strip):
+                    filtered_address_lines.append(line_strip)
+                elif line_strip.startswith(("Ref #:", "Thanks")):
+                    break
+                
+            structured_data["shipping_address"]["value"] = ', '.join(filtered_address_lines)
             structured_data["shipping_address"]["confidence"] = 0.85
             structured_data["shipping_address"]["source"] = "regex"
     
@@ -640,7 +664,9 @@ def parse_order_document(text):
             "Part #", 
             "SKU", 
             "Quantity",
-            "Item #"
+            "Item #",
+            "Ref #:",  # Added indicator for "Ref #"
+            "Thanks"   # Added indicator for "Thanks"
         ]
         
         # Find where any line item indicator starts
@@ -662,7 +688,21 @@ def parse_order_document(text):
             address = address[:cutoff_idx].strip()
             print(f"Trimmed address at index {cutoff_idx}")
         
+        # Additional filtering for properly formatted address lines
+        address_parts = [part.strip() for part in address.split(',')]
+        filtered_parts = []
+        
+        for part in address_parts:
+            # Only keep parts that start with capital letters or numbers (proper address format)
+            if part and re.match(r"^[A-Z0-9]", part):
+                filtered_parts.append(part)
+            # Stop at blank lines or informal phrases
+            elif part.lower().startswith(("our warehouse", "your warehouse", "ref #", "thanks", "reference")):
+                print(f"Stopping at informal phrase: '{part}'")
+                break
+        
         # Cleanup: remove trailing commas and normalize whitespace
+        address = ', '.join(filtered_parts)
         address = re.sub(r',\s*$', '', address)
         address = re.sub(r'\s+', ' ', address).strip()
         print(f"Cleaned shipping address: '{address}'")

@@ -19,6 +19,22 @@ function ResultsDisplay({ parsedData, extractedText }) {
     if (!item[fieldName]?.warning) return '';
     return 'bg-yellow-100 border-yellow-300';
   };
+  
+  const getSourceTag = (source) => {
+    if (!source) return null;
+    
+    const bgColor = 
+      source.includes('llm') ? 'bg-blue-100 text-blue-800' :
+      source.includes('ner') ? 'bg-green-100 text-green-800' :
+      source.includes('regex') ? 'bg-purple-100 text-purple-800' : 
+      'bg-gray-100 text-gray-800';
+    
+    return (
+      <span className={`text-xs px-2 py-1 rounded ${bgColor} ml-2`}>
+        {source}
+      </span>
+    );
+  };
 
   return (
     <div>
@@ -37,19 +53,28 @@ function ResultsDisplay({ parsedData, extractedText }) {
           <div className="border rounded-lg p-4 bg-gray-50">
             <div className="grid grid-cols-2 gap-4 mb-4">
               <div className={`p-2 border rounded ${getFieldWarningClass('customer')}`}>
-                <strong>Customer:</strong> {parsedData.customer}
+                <div className="flex items-center justify-between">
+                  <span><strong>Customer:</strong> {parsedData.customer}</span>
+                  {getSourceTag(parsedData.extraction_details?.customer?.source)}
+                </div>
                 {parsedData.extraction_details?.customer?.warning && (
                   <span className="ml-2 text-yellow-600 text-xs">⚠️ Low confidence</span>
                 )}
               </div>
               <div className={`p-2 border rounded ${getFieldWarningClass('order_id')}`}>
-                <strong>Order ID:</strong> {parsedData.order_id}
+                <div className="flex items-center justify-between">
+                  <span><strong>Order ID:</strong> {parsedData.order_id}</span>
+                  {getSourceTag(parsedData.extraction_details?.order_id?.source)}
+                </div>
                 {parsedData.extraction_details?.order_id?.warning && (
                   <span className="ml-2 text-yellow-600 text-xs">⚠️ Low confidence</span>
                 )}
               </div>
               <div className={`p-2 border rounded col-span-2 ${getFieldWarningClass('shipping_address')}`}>
-                <strong>Shipping Address:</strong> {parsedData.shipping_address}
+                <div className="flex items-center justify-between">
+                  <span><strong>Shipping Address:</strong> {parsedData.shipping_address}</span>
+                  {getSourceTag(parsedData.extraction_details?.shipping_address?.source)}
+                </div>
                 {parsedData.extraction_details?.shipping_address?.warning && (
                   <span className="ml-2 text-yellow-600 text-xs">⚠️ Low confidence</span>
                 )}
@@ -63,6 +88,7 @@ function ResultsDisplay({ parsedData, extractedText }) {
                   <th className="border p-2 text-left">SKU</th>
                   <th className="border p-2 text-left">Quantity</th>
                   <th className="border p-2 text-left">Price</th>
+                  <th className="border p-2 text-left">Source</th>
                 </tr>
               </thead>
               <tbody>
@@ -85,6 +111,9 @@ function ResultsDisplay({ parsedData, extractedText }) {
                       {parsedData.extraction_details?.line_items[index]?.price?.warning && (
                         <span className="ml-2 text-yellow-600 text-xs">⚠️</span>
                       )}
+                    </td>
+                    <td className="border p-2">
+                      {getSourceTag(parsedData.extraction_details?.line_items[index]?.sku?.source)}
                     </td>
                   </tr>
                 ))}
@@ -109,7 +138,7 @@ function ResultsDisplay({ parsedData, extractedText }) {
             
             <div className="mt-4 flex justify-end">
               <a 
-                href="http://localhost:5000/download"
+                href={`http://localhost:5001/download?t=${new Date().getTime()}`}
                 className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded"
                 target="_blank"
                 rel="noopener noreferrer"

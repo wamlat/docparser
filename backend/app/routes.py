@@ -7,6 +7,8 @@ import datetime
 import werkzeug
 import importlib
 from app.ocr import extract_text
+from flask_cors import CORS
+from app.parser_stats import get_usage_stats, save_stats_to_file
 # Import parser only when needed to avoid circular imports
 
 # Create necessary directories for uploaded files and parsed results
@@ -296,6 +298,16 @@ def parse_document():
                 "details": extraction_result['error']
             }), 500
         
+        # Check if LLM mode is forced via query parameter
+        use_llm = request.args.get('llm') == 'true'
+        if use_llm:
+            # Temporarily set environment variable for this request
+            os.environ["USE_LLM_PARSER"] = "true"
+            logger.info("LLM parser mode enabled via query parameter")
+        else:
+            # Use default from config
+            os.environ.pop("USE_LLM_PARSER", None)
+        
         # Import parser module to ensure latest code is used
         print("Importing and reloading parser_v2 module... FORCED RELOAD")
         import sys
@@ -326,8 +338,8 @@ def parse_document():
         response.headers['Expires'] = '0'
         
         return response
-        
     except Exception as e:
+        logger.error(f"Error parsing document: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 def save_parsed_result(parsed_data, original_filename):
@@ -477,4 +489,20 @@ def download_specific_result(filename):
         )
         
     except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/stats', methods=['GET'])
+def get_parser_stats():
+    """API endpoint to return parser usage statistics"""
+    try:
+        # Get current stats
+        stats = get_usage_stats()
+        
+        # Save stats to file for persistence
+        save_stats_to_file(os.path.join(PARSED_FOLDER, 'parser_stats.json'))
+        
+        # Return stats as JSON
+        return jsonify(stats)
+    except Exception as e:
+        logger.error(f"Error getting parser stats: {str(e)}")
         return jsonify({"error": str(e)}), 500 
