@@ -56,7 +56,3 @@ The system exposes a RESTful API for document processing:
 - `GET /parse` - Extract structured data from the uploaded document
 - `GET /stats` - Get parser usage statistics
 - `GET /download` - Download the processed results as JSON
-
-## Development
-
-For development setup and contributing guidelines, see [CONTRIBUTING.md](./CONTRIBUTING.md). 
