@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Direct API Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+        .btn { background-color: #3498db; color: white; border: none; padding: 10px 15px; border-radius: 4px; cursor: pointer; margin-right: 5px; }
+        .result { background-color: #f9f9f9; padding: 15px; border-radius: 4px; margin-top: 20px; }
+        pre { white-space: pre-wrap; overflow-wrap: break-word; }
+        .success { color: green; }
+        .error { color: red; }
+    </style>
+</head>
+<body>
+    <h1>Direct API Testing</h1>
+    <p>Tests direct connections to the API without using the Vite proxy</p>
+    
+    <div>
+        <button class="btn" id="testRootEndpoint">Test Root Endpoint</button>
+        <button class="btn" id="testUploadEndpoint">Test Upload Endpoint</button>
+        <button class="btn" id="testParseEndpoint">Test Parse Endpoint</button>
+    </div>
+    
+    <div class="result" id="result" style="display: none;">
+        <h3>Response:</h3>
+        <pre id="responseContent"></pre>
+    </div>
+    
+    <script>
+        const resultDiv = document.getElementById('result');
+        const responseContent = document.getElementById('responseContent');
+
+        // Test the root endpoint (/)
+        document.getElementById('testRootEndpoint').addEventListener('click', async function() {
+            try {
+                const timestamp = new Date().getTime();
+                const response = await fetch(`http://localhost:5001/?t=${timestamp}`);
+                const data = await response.json();
+                
+                responseContent.innerHTML = `<span class="success">✓ Root Endpoint Test Successful!</span>\n\nResponse: ${JSON.stringify(data, null, 2)}`;
+                resultDiv.style.display = 'block';
+                
+                // Also show headers
+                const headers = Array.from(response.headers.entries())
+                    .map(([key, value]) => `${key}: ${value}`)
+                    .join('\n');
+                
+                responseContent.innerHTML += `\n\nHeaders:\n${headers || 'No headers found'}`;
+                
+            } catch (error) {
+                console.error('Error:', error);
+                responseContent.innerHTML = `<span class="error">✗ Root Endpoint Test Failed!</span>\n\nError: ${error.message}`;
+                resultDiv.style.display = 'block';
+            }
+        });
+        
+        // Test the upload endpoint with a simple file
+        document.getElementById('testUploadEndpoint').addEventListener('click', async function() {
+            try {
+                // Create a simple text file to upload
+                const fileContent = 'This is a test file for upload to test the API';
+                const file = new File([fileContent], 'test.txt', { type: 'text/plain' });
+                
+                const formData = new FormData();
+                formData.append('file', file);
+                
+                // Upload the file
+                const response = await fetch('http://localhost:5001/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                responseContent.innerHTML = `<span class="success">✓ Upload Endpoint Test ${response.ok ? 'Successful' : 'Failed with Status ' + response.status}!</span>\n\nResponse: ${JSON.stringify(data, null, 2)}`;
+                resultDiv.style.display = 'block';
+                
+            } catch (error) {
+                console.error('Error:', error);
+                responseContent.innerHTML = `<span class="error">✗ Upload Endpoint Test Failed!</span>\n\nError: ${error.message}`;
+                resultDiv.style.display = 'block';
+            }
+        });
+        
+        // Test the parse endpoint
+        document.getElementById('testParseEndpoint').addEventListener('click', async function() {
+            try {
+                const timestamp = new Date().getTime();
+                const response = await fetch(`http://localhost:5001/parse?t=${timestamp}`);
+                
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    responseContent.innerHTML = `<span class="error">✗ Parse Endpoint Test Failed with Status ${response.status}!</span>\n\nError: ${JSON.stringify(errorData, null, 2)}`;
+                } else {
+                    const data = await response.json();
+                    responseContent.innerHTML = `<span class="success">✓ Parse Endpoint Test Successful!</span>\n\nResponse: ${JSON.stringify(data.parsed_data || data, null, 2)}`;
+                }
+                
+                resultDiv.style.display = 'block';
+                
+            } catch (error) {
+                console.error('Error:', error);
+                responseContent.innerHTML = `<span class="error">✗ Parse Endpoint Test Failed!</span>\n\nError: ${error.message}`;
+                resultDiv.style.display = 'block';
+            }
+        });
+    </script>
+</body>
+</html> 

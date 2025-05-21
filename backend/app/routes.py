@@ -1,12 +1,13 @@
 from app import app
-from flask import jsonify, request, send_from_directory
+from flask import jsonify, request, send_from_directory, render_template_string
 import os
 import uuid
 import json
 import datetime
 import werkzeug
+import importlib
 from app.ocr import extract_text
-from app.parser import parse_order_document
+# Import parser only when needed to avoid circular imports
 
 # Create necessary directories for uploaded files and parsed results
 UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'data', 'temp')
@@ -25,53 +26,231 @@ def allowed_file(filename):
 
 @app.route('/')
 def index():
-    return jsonify({"message": "Hello, world!"})
+    # Simple test interface for the API
+    html = """
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Order Document Parser Test</title>
+        <style>
+            body {
+                font-family: Arial, sans-serif;
+                max-width: 800px;
+                margin: 0 auto;
+                padding: 20px;
+                line-height: 1.6;
+            }
+            h1 {
+                color: #2c3e50;
+            }
+            .container {
+                border: 1px solid #ddd;
+                padding: 20px;
+                border-radius: 8px;
+                margin-bottom: 20px;
+            }
+            .form-group {
+                margin-bottom: 15px;
+            }
+            .btn {
+                background-color: #3498db;
+                color: white;
+                border: none;
+                padding: 10px 15px;
+                border-radius: 4px;
+                cursor: pointer;
+            }
+            .result {
+                background-color: #f9f9f9;
+                padding: 15px;
+                border-radius: 4px;
+                margin-top: 20px;
+            }
+            .debug {
+                background-color: #f0f0f0;
+                padding: 10px;
+                border-radius: 4px;
+                white-space: pre-wrap;
+                font-family: monospace;
+                font-size: 12px;
+                margin-top: 20px;
+                max-height: 300px;
+                overflow: auto;
+            }
+            table {
+                width: 100%;
+                border-collapse: collapse;
+                margin-top: 20px;
+            }
+            th, td {
+                padding: 8px;
+                text-align: left;
+                border-bottom: 1px solid #ddd;
+            }
+            th {
+                background-color: #f2f2f2;
+            }
+        </style>
+    </head>
+    <body>
+        <h1>Direct API Order Document Parser</h1>
+        <div class="container">
+            <h2>Upload Order Document</h2>
+            <form id="uploadForm" enctype="multipart/form-data">
+                <div class="form-group">
+                    <input type="file" id="fileInput" name="file" accept=".pdf,.png,.jpg,.jpeg,.txt">
+                </div>
+                <button type="submit" class="btn">Upload & Parse</button>
+            </form>
+        </div>
+
+        <div class="result" id="result" style="display: none;">
+            <h2>Parsed Data</h2>
+            <div>
+                <strong>Customer:</strong> <span id="customer"></span>
+            </div>
+            <div>
+                <strong>Order ID:</strong> <span id="orderId"></span>
+            </div>
+            <div>
+                <strong>Shipping Address:</strong> <span id="address"></span>
+            </div>
+            <h3>Line Items</h3>
+            <table id="lineItems">
+                <thead>
+                    <tr>
+                        <th>SKU</th>
+                        <th>Quantity</th>
+                        <th>Price</th>
+                    </tr>
+                </thead>
+                <tbody>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="debug" id="debug" style="display: none;"></div>
+
+        <script>
+            document.getElementById('uploadForm').addEventListener('submit', function(event) {
+                event.preventDefault();
+                
+                const fileInput = document.getElementById('fileInput');
+                const file = fileInput.files[0];
+                
+                if (!file) {
+                    alert('Please select a file to upload');
+                    return;
+                }
+                
+                const formData = new FormData();
+                formData.append('file', file);
+                
+                // First upload the file
+                fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Upload:', data);
+                    
+                    // Then parse the document
+                    return fetch('/parse');
+                })
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Parse:', data);
+                    displayResults(data);
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    document.getElementById('debug').innerText = 'Error: ' + error.message;
+                    document.getElementById('debug').style.display = 'block';
+                });
+            });
+            
+            function displayResults(data) {
+                if (data.parsed_data) {
+                    // Display parsed data
+                    document.getElementById('customer').innerText = data.parsed_data.customer || 'N/A';
+                    document.getElementById('orderId').innerText = data.parsed_data.order_id || 'N/A';
+                    document.getElementById('address').innerText = data.parsed_data.shipping_address || 'N/A';
+                    
+                    // Display line items
+                    const tableBody = document.getElementById('lineItems').getElementsByTagName('tbody')[0];
+                    tableBody.innerHTML = '';
+                    
+                    if (data.parsed_data.line_items && data.parsed_data.line_items.length > 0) {
+                        data.parsed_data.line_items.forEach(item => {
+                            const row = tableBody.insertRow();
+                            
+                            const skuCell = row.insertCell();
+                            skuCell.innerText = item.sku || 'N/A';
+                            
+                            const qtyCell = row.insertCell();
+                            qtyCell.innerText = item.quantity || 'N/A';
+                            
+                            const priceCell = row.insertCell();
+                            priceCell.innerText = item.price ? '$' + item.price : 'N/A';
+                        });
+                    } else {
+                        const row = tableBody.insertRow();
+                        const cell = row.insertCell();
+                        cell.colSpan = 3;
+                        cell.innerText = 'No line items found';
+                    }
+                    
+                    document.getElementById('result').style.display = 'block';
+                }
+                
+                // Display debug info
+                document.getElementById('debug').innerText = JSON.stringify(data, null, 2);
+                document.getElementById('debug').style.display = 'block';
+            }
+        </script>
+    </body>
+    </html>
+    """
+    return render_template_string(html)
 
 @app.route('/upload', methods=['POST'])
 def upload_file():
     # Check if the post request has the file part
     if 'file' not in request.files:
+        print("No file part in request")
         return jsonify({"error": "No file part"}), 400
     
     file = request.files['file']
     
     # If user does not select file, browser also submits an empty part without filename
     if file.filename == '':
+        print("No selected filename")
         return jsonify({"error": "No selected file"}), 400
     
     if file and allowed_file(file.filename):
         try:
-            # Check if file has actual content
-            file_content = file.read()
-            if not file_content:
-                return jsonify({"error": "Uploaded file is empty"}), 400
+            print(f"Processing file: {file.filename}")
             
-            # Validate file by extension
-            file_extension = file.filename.rsplit('.', 1)[1].lower()
-            
-            # Basic validation for images and PDFs
-            if file_extension in ['png', 'jpg', 'jpeg']:
-                # Try to validate image format by checking the magic bytes
-                if not file_content.startswith(b'\x89PNG') and not file_content.startswith(b'\xff\xd8\xff'):
-                    return jsonify({"error": "Invalid image format. File does not appear to be a valid image."}), 400
-            
-            elif file_extension == 'pdf':
-                # Check for PDF signature
-                if not file_content.startswith(b'%PDF-'):
-                    return jsonify({"error": "Invalid PDF format. File does not appear to be a valid PDF."}), 400
-            
-            # Reset the file pointer to the beginning for saving
-            file.seek(0)
+            # Read file content, but allow empty files
+            file_content = file.read(1024)  # Read only the first 1024 bytes to check
+            file.seek(0)  # Reset file pointer for later use
             
             # Generate a unique filename to avoid collisions
+            file_extension = file.filename.rsplit('.', 1)[1].lower()
             unique_filename = f"{str(uuid.uuid4())}.{file_extension}"
             
-            # Save the file to the upload folder
+            # Save the file to the upload folder without content validation
             file_path = os.path.join(UPLOAD_FOLDER, unique_filename)
             file.save(file_path)
             
+            print(f"File saved to: {file_path}")
+            
             # Extract text from the uploaded file
             extraction_result = extract_text(file_path)
+            print(f"Extraction result: {extraction_result['success']}")
             
             return jsonify({
                 "message": "File uploaded successfully",
@@ -87,8 +266,10 @@ def upload_file():
             }), 201
             
         except Exception as e:
+            print(f"Error processing file: {str(e)}")
             return jsonify({"error": f"Error processing file: {str(e)}"}), 500
     
+    print(f"File type not allowed: {file.filename}")
     return jsonify({"error": "File type not allowed"}), 400
 
 @app.route('/parse', methods=['GET'])
@@ -115,18 +296,36 @@ def parse_document():
                 "details": extraction_result['error']
             }), 500
         
+        # Import parser module to ensure latest code is used
+        print("Importing and reloading parser_v2 module... FORCED RELOAD")
+        import sys
+        if 'app.parser_v2' in sys.modules:
+            del sys.modules['app.parser_v2']
+        import app.parser_v2
+        importlib.reload(app.parser_v2)
+        from app.parser_v2 import parse_order_document
+        
         # Parse the extracted text using NER
         parsed_data = parse_order_document(extraction_result['text'])
         
         # Save the parsed result to the parsed folder
         save_parsed_result(parsed_data, os.path.basename(latest_file))
         
-        return jsonify({
+        # Create response with no-cache headers
+        response = jsonify({
             "file": os.path.basename(latest_file),
             "file_type": extraction_result['file_type'],
             "text": extraction_result['text'],
-            "parsed_data": parsed_data
+            "parsed_data": parsed_data,
+            "timestamp": datetime.datetime.now().isoformat()  # Add timestamp to ensure it's fresh
         })
+        
+        # Set cache prevention headers
+        response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+        
+        return response
         
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -181,6 +380,15 @@ def download_result():
                 "details": extraction_result['error']
             }), 500
         
+        # Import parser module to ensure latest code is used
+        print("Importing and reloading parser_v2 module... FORCED RELOAD")
+        import sys
+        if 'app.parser_v2' in sys.modules:
+            del sys.modules['app.parser_v2']
+        import app.parser_v2
+        importlib.reload(app.parser_v2)
+        from app.parser_v2 import parse_order_document
+        
         # Parse the extracted text using NER
         parsed_data = parse_order_document(extraction_result['text'])
         
@@ -188,11 +396,18 @@ def download_result():
         output_path = save_parsed_result(parsed_data, os.path.basename(latest_file))
         
         # Serve the file for download
-        return send_from_directory(
+        response = send_from_directory(
             directory=PARSED_FOLDER,
             path=os.path.basename(output_path),
             as_attachment=True
         )
+        
+        # Set cache prevention headers
+        response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+        
+        return response
         
     except Exception as e:
         return jsonify({"error": str(e)}), 500

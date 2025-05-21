@@ -1,0 +1,34 @@
+{
+  "customer": "",
+  "order_id": "",
+  "shipping_address": "",
+  "line_items": [],
+  "confidence": {
+    "customer": 0.0,
+    "order_id": 0.0,
+    "shipping_address": 0.0,
+    "line_items": 0.0,
+    "overall": 0.0
+  },
+  "extraction_details": {
+    "customer": {
+      "value": "",
+      "confidence": 0.0,
+      "source": "",
+      "warning": true
+    },
+    "order_id": {
+      "value": "",
+      "confidence": 0.0,
+      "source": "",
+      "warning": true
+    },
+    "shipping_address": {
+      "value": "",
+      "confidence": 0.0,
+      "source": "",
+      "warning": true
+    },
+    "line_items": []
+  }
+}

@@ -1,0 +1,121 @@
+{
+  "customer": "NovaTechIndustries NovaTechIndustries",
+  "order_id": "ORDER",
+  "shipping_address": "1420 Edison Lane, Austin, TX 73301, Line Items:, 1. Part #AXL-9920 | Qty: 25 | Unit Price: $12.50, 2. Part #MNT-8833 | Qty: 10 | Unit Price: $44.99",
+  "line_items": [
+    {
+      "sku": "AXL-9920",
+      "quantity": 25,
+      "price": 12.5
+    },
+    {
+      "sku": "MNT-8833",
+      "quantity": 10,
+      "price": 44.99
+    },
+    {
+      "sku": "s",
+      "quantity": 25,
+      "price": 12.5
+    },
+    {
+      "sku": "MNT-8833",
+      "quantity": 10,
+      "price": 44.99
+    }
+  ],
+  "confidence": {
+    "customer": 0.9992841333150864,
+    "order_id": 0.95,
+    "shipping_address": 0.92,
+    "line_items": 0.875,
+    "overall": 0.9360710333287716
+  },
+  "extraction_details": {
+    "customer": {
+      "value": "NovaTechIndustries NovaTechIndustries",
+      "confidence": 0.9992841333150864,
+      "source": "ner"
+    },
+    "order_id": {
+      "value": "ORDER",
+      "confidence": 0.95,
+      "source": "regex"
+    },
+    "shipping_address": {
+      "value": "1420 Edison Lane, Austin, TX 73301, Line Items:, 1. Part #AXL-9920 | Qty: 25 | Unit Price: $12.50, 2. Part #MNT-8833 | Qty: 10 | Unit Price: $44.99",
+      "confidence": 0.92,
+      "source": "regex-multi"
+    },
+    "line_items": [
+      {
+        "sku": {
+          "value": "AXL-9920",
+          "confidence": 0.95,
+          "source": "regex-part"
+        },
+        "quantity": {
+          "value": 25,
+          "confidence": 0.95,
+          "source": "regex"
+        },
+        "price": {
+          "value": 12.5,
+          "confidence": 0.95,
+          "source": "regex"
+        }
+      },
+      {
+        "sku": {
+          "value": "MNT-8833",
+          "confidence": 0.95,
+          "source": "regex-part"
+        },
+        "quantity": {
+          "value": 10,
+          "confidence": 0.95,
+          "source": "regex"
+        },
+        "price": {
+          "value": 44.99,
+          "confidence": 0.95,
+          "source": "regex"
+        }
+      },
+      {
+        "sku": {
+          "value": "s",
+          "confidence": 0.8,
+          "source": "regex-line"
+        },
+        "quantity": {
+          "value": 25,
+          "confidence": 0.8,
+          "source": "regex-line"
+        },
+        "price": {
+          "value": 12.5,
+          "confidence": 0.8,
+          "source": "regex-line"
+        }
+      },
+      {
+        "sku": {
+          "value": "MNT-8833",
+          "confidence": 0.8,
+          "source": "regex-line"
+        },
+        "quantity": {
+          "value": 10,
+          "confidence": 0.8,
+          "source": "regex-line"
+        },
+        "price": {
+          "value": 44.99,
+          "confidence": 0.8,
+          "source": "regex-line"
+        }
+      }
+    ]
+  }
+}

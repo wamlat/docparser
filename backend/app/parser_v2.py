@@ -8,7 +8,7 @@ from app.ner_model import predict_entities, group_entities
 CONFIDENCE_THRESHOLD = 0.7  # Confidence threshold for warnings
 
 # Load NER model and tokenizer
-print("Loading NER model and tokenizer...")
+print("Loading NER model and tokenizer for parser_v2...")
 tokenizer = AutoTokenizer.from_pretrained("dslim/bert-base-NER")
 model = AutoModelForTokenClassification.from_pretrained("dslim/bert-base-NER")
 print("NER model and tokenizer loaded successfully")
@@ -223,62 +223,6 @@ def extract_ner(text):
     
     return processed_entities
 
-def extract_sku_regex(text):
-    """
-    Extract SKU from text using regex patterns.
-    
-    Args:
-        text (str): Text to process
-        
-    Returns:
-        tuple: (SKU, source)
-    """
-    # Try multiple patterns for SKU
-    patterns = [
-        r'(?:sku|item|part)\s*(?:\#|number)?[:\s]*\s*([a-zA-Z0-9\-]+)',  # SKU: ABC123
-        r'(?:product|item)\s*(?:id|code)[:\s]*\s*([a-zA-Z0-9\-]+)',      # Product ID: ABC123
-        r'(?:part|item)\s*\#\s*([a-zA-Z0-9\-]+)',                         # Part # ABC123
-    ]
-    
-    for pattern in patterns:
-        match = re.search(pattern, text, re.IGNORECASE)
-        if match:
-            return match.group(1), "regex"
-    
-    return None, None
-
-def extract_quantity_regex(text, context=None):
-    """Extract quantity using regex patterns"""
-    context = context or text
-    patterns = [
-        r'(?:qty|quantity)\s*[\:\#]?\s*(\d+)',  # Quantity: 10
-        r'(\d+)\s*(?:units?|pcs|pieces)'  # 10 units, 10 pcs
-    ]
-    
-    for pattern in patterns:
-        if context:
-            match = re.search(pattern, context, re.IGNORECASE)
-            if match:
-                return int(match.group(1)), "regex"
-    
-    return None, None
-
-def extract_price_regex(text, context=None):
-    """Extract price using regex patterns"""
-    context = context or text
-    patterns = [
-        r'(?:price)\s*[\:\#]?\s*[\$\£\€]?\s*(\d+(?:\.\d{1,2})?)',  # Price: $10.99
-        r'[\$\£\€]\s*(\d+(?:\.\d{1,2})?)'  # $10.99
-    ]
-    
-    for pattern in patterns:
-        if context:
-            match = re.search(pattern, context, re.IGNORECASE)
-            if match:
-                return float(match.group(1)), "regex"
-    
-    return None, None
-
 def extract_entities(text):
     """
     Extract structured entities from raw text using NER and regex.
@@ -387,78 +331,9 @@ def extract_entities(text):
             
             structured_data["line_items"].append(line_item)
     
-    # Use NER as fallback or to enhance regex results
-    entities = extract_ner(text)
-    
-    # Group consecutive entities of the same type
-    grouped_entities = []
-    current_group = []
-    
-    for i, entity in enumerate(entities):
-        if i == 0 or entity[1] != entities[i-1][1]:
-            # Start a new group
-            if current_group:
-                # Combine the text of all entities in the group
-                combined_text = ' '.join(e[0] for e in current_group)
-                # Use the entity type and average confidence
-                entity_type = current_group[0][1]
-                avg_confidence = sum(e[2] for e in current_group) / len(current_group)
-                grouped_entities.append((combined_text, entity_type, avg_confidence))
-                current_group = []
-            
-            current_group.append(entity)
-        else:
-            # Add to the current group
-            current_group.append(entity)
-    
-    # Add the last group
-    if current_group:
-        combined_text = ' '.join(e[0] for e in current_group)
-        entity_type = current_group[0][1]
-        avg_confidence = sum(e[2] for e in current_group) / len(current_group)
-        grouped_entities.append((combined_text, entity_type, avg_confidence))
-    
-    # Process the grouped entities
-    for entity in grouped_entities:
-        entity_text, entity_type = entity[0], entity[1]
-        confidence = entity[2] if len(entity) > 2 else 0.7  # Default confidence if not provided
-        
-        # Map entity types to our structured fields
-        if entity_type == "PER" or entity_type == "ORG":
-            if not structured_data["customer"]["value"] or confidence > structured_data["customer"]["confidence"]:
-                structured_data["customer"]["value"] = entity_text
-                structured_data["customer"]["confidence"] = confidence
-                structured_data["customer"]["source"] = "ner"
-                if confidence < CONFIDENCE_THRESHOLD:
-                    structured_data["customer"]["warning"] = True
-        elif entity_type == "LOC":
-            # Use NER location entities for shipping address if confidence is high enough
-            if (not structured_data["shipping_address"]["value"] or 
-                confidence > structured_data["shipping_address"]["confidence"]):
-                structured_data["shipping_address"]["value"] = entity_text
-                structured_data["shipping_address"]["confidence"] = confidence
-                structured_data["shipping_address"]["source"] = "ner"
-                if confidence < CONFIDENCE_THRESHOLD:
-                    structured_data["shipping_address"]["warning"] = True
-        elif entity_type == "MISC" and "order" in entity_text.lower():
-            # Enhanced extraction for order IDs from NER output
-            order_match = re.search(r'(?:order\s*(?:id|number)?|po)[\s\:\#]*([a-zA-Z0-9\-]+)', 
-                                   entity_text.lower())
-            if order_match:
-                extracted_id = order_match.group(1).upper()
-                # Only update if the extracted ID is longer or we don't have one yet
-                if (not structured_data["order_id"]["value"] or 
-                    len(extracted_id) > len(structured_data["order_id"]["value"])):
-                    structured_data["order_id"]["value"] = extracted_id
-                    structured_data["order_id"]["confidence"] = confidence * 0.9
-                    structured_data["order_id"]["source"] = "ner+regex"
-                    if confidence * 0.9 < CONFIDENCE_THRESHOLD:
-                        structured_data["order_id"]["warning"] = True
-    
-    # Extract and process line items from text
+    # Process the text line by line to extract structured line items
     current_line_item = None
     
-    # Process the text line by line to extract structured line items
     for line in text.splitlines():
         line = line.strip()
         
@@ -553,15 +428,6 @@ def extract_entities(text):
         if current_line_item not in structured_data["line_items"]:
             structured_data["line_items"].append(current_line_item)
     
-    # If we still don't have any fields, try regex extraction again with lower confidence
-    if not structured_data["order_id"]["value"]:
-        order_id, source = extract_sku_regex(text)
-        if order_id:
-            structured_data["order_id"]["value"] = order_id.upper()
-            structured_data["order_id"]["confidence"] = 0.6
-            structured_data["order_id"]["source"] = source
-            structured_data["order_id"]["warning"] = True
-    
     # Override "ORDER" with regex extraction if needed
     if structured_data["order_id"]["value"] == "ORDER" or structured_data["order_id"]["value"] == "":
         print("Attempting to extract order ID with additional fallback patterns...")
@@ -599,7 +465,7 @@ def parse_order_document(text):
     Returns:
         dict: Structured order data
     """
-    print("\n===== DEBUG: Starting parse_order_document =====")
+    print("\n===== DEBUG: Starting parse_order_document (PARSER_V2) =====")
     
     # Extract structured data from text
     structured_data = extract_entities(text)
@@ -705,7 +571,7 @@ def parse_order_document(text):
     print("Final output SKUs:")
     for i, item in enumerate(flat_output["line_items"]):
         print(f"Final Item {i}: SKU='{item['sku']}'")
-    print("===== DEBUG: Finished parse_order_document =====\n")
+    print("===== DEBUG: Finished parse_order_document (PARSER_V2) =====\n")
     
     # Calculate confidence scores
     confidence = {

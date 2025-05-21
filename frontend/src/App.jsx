@@ -1,7 +1,8 @@
 import React, { useState, useRef } from 'react';
 import axios from 'axios';
 
-const API_BASE_URL = 'http://localhost:5000';
+// Updated to use the Vite proxy configuration
+const API_BASE_URL = '/api';
 
 function App() {
   const [file, setFile] = useState(null);
@@ -10,6 +11,21 @@ function App() {
   const [parsedData, setParsedData] = useState(null);
   const [error, setError] = useState('');
   const fileInputRef = useRef(null);
+
+  const testApiConnection = async () => {
+    try {
+      // Test the root endpoint
+      const timestamp = new Date().getTime();
+      const response = await axios.get(`${API_BASE_URL}/?t=${timestamp}`);
+      console.log('API Connection Test Result:', response.data);
+      alert(`API Connection Successful!\nResponse: ${JSON.stringify(response.data)}`);
+      return true;
+    } catch (error) {
+      console.error('API Connection Test Failed:', error);
+      alert(`API Connection Failed!\nError: ${error.message}\nPlease check the console for details.`);
+      return false;
+    }
+  };
 
   const handleFileChange = (event) => {
     const selectedFile = event.target.files[0];
@@ -57,8 +73,10 @@ function App() {
       console.log('Upload response:', uploadResponse.data);
       setExtractedText(uploadResponse.data.extraction.text);
 
-      // Parse the document
-      const parseResponse = await axios.get(`${API_BASE_URL}/parse`);
+      // Add a timestamp to prevent browser/server caching
+      const timestamp = new Date().getTime();
+      // Parse the document - force fresh parse with timestamp
+      const parseResponse = await axios.get(`${API_BASE_URL}/parse?t=${timestamp}`);
       console.log('Parse response:', parseResponse.data);
       setParsedData(parseResponse.data.parsed_data);
       
@@ -98,6 +116,15 @@ function App() {
       <h1 className="text-3xl font-bold text-center mb-8">Intelligent Order Document Parser</h1>
       
       <div className="max-w-4xl mx-auto bg-white rounded-lg shadow-md p-6">
+        <div className="mb-4 flex justify-end">
+          <button 
+            className="bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded mr-2"
+            onClick={testApiConnection}
+          >
+            Test API Connection
+          </button>
+        </div>
+        
         <div 
           className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center cursor-pointer hover:border-blue-500 transition-colors"
           onDragOver={handleDragOver}
@@ -229,7 +256,7 @@ function App() {
               
               <div className="mt-4 flex justify-end">
                 <a 
-                  href={`${API_BASE_URL}/download`}
+                  href={`${API_BASE_URL}/download?t=${new Date().getTime()}`}
                   className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded"
                   target="_blank"
                   rel="noopener noreferrer"

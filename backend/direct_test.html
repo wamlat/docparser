@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Direct Fix Parser Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        h1 {
+            color: #2c3e50;
+        }
+        .container {
+            border: 1px solid #ddd;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .btn {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .result {
+            background-color: #f9f9f9;
+            padding: 15px;
+            border-radius: 4px;
+            margin-top: 20px;
+        }
+        .debug {
+            background-color: #f0f0f0;
+            padding: 10px;
+            border-radius: 4px;
+            white-space: pre-wrap;
+            font-family: monospace;
+            font-size: 12px;
+            margin-top: 20px;
+            max-height: 300px;
+            overflow: auto;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            padding: 8px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+    </style>
+</head>
+<body>
+    <h1>Direct Fix Parser Test</h1>
+    <div class="container">
+        <h2>Upload Order Document</h2>
+        <form id="uploadForm" enctype="multipart/form-data">
+            <div class="form-group">
+                <input type="file" id="fileInput" name="file" accept=".pdf,.png,.jpg,.jpeg,.txt">
+            </div>
+            <button type="submit" class="btn">Upload & Parse</button>
+        </form>
+    </div>
+
+    <div class="result" id="result" style="display: none;">
+        <h2>Parsed Data</h2>
+        <div>
+            <strong>Customer:</strong> <span id="customer"></span>
+        </div>
+        <div>
+            <strong>Order ID:</strong> <span id="orderId"></span>
+        </div>
+        <div>
+            <strong>Shipping Address:</strong> <span id="address"></span>
+        </div>
+        <h3>Line Items</h3>
+        <table id="lineItems">
+            <thead>
+                <tr>
+                    <th>SKU</th>
+                    <th>Quantity</th>
+                    <th>Price</th>
+                </tr>
+            </thead>
+            <tbody>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="debug" id="debug" style="display: none;"></div>
+
+    <script>
+        document.getElementById('uploadForm').addEventListener('submit', function(event) {
+            event.preventDefault();
+            
+            const fileInput = document.getElementById('fileInput');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                alert('Please select a file to upload');
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            // Use our special direct fix server on port 5001
+            fetch('http://localhost:5001/upload', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log('Success:', data);
+                displayResults(data);
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                document.getElementById('debug').innerText = 'Error: ' + error.message;
+                document.getElementById('debug').style.display = 'block';
+            });
+        });
+        
+        function displayResults(data) {
+            if (data.parsed_data) {
+                // Display parsed data
+                document.getElementById('customer').innerText = data.parsed_data.customer || 'N/A';
+                document.getElementById('orderId').innerText = data.parsed_data.order_id || 'N/A';
+                document.getElementById('address').innerText = data.parsed_data.shipping_address || 'N/A';
+                
+                // Display line items
+                const tableBody = document.getElementById('lineItems').getElementsByTagName('tbody')[0];
+                tableBody.innerHTML = '';
+                
+                if (data.parsed_data.line_items && data.parsed_data.line_items.length > 0) {
+                    data.parsed_data.line_items.forEach(item => {
+                        const row = tableBody.insertRow();
+                        
+                        const skuCell = row.insertCell();
+                        skuCell.innerText = item.sku || 'N/A';
+                        
+                        const qtyCell = row.insertCell();
+                        qtyCell.innerText = item.quantity || 'N/A';
+                        
+                        const priceCell = row.insertCell();
+                        priceCell.innerText = item.price ? '$' + item.price : 'N/A';
+                    });
+                } else {
+                    const row = tableBody.insertRow();
+                    const cell = row.insertCell();
+                    cell.colSpan = 3;
+                    cell.innerText = 'No line items found';
+                }
+                
+                document.getElementById('result').style.display = 'block';
+            }
+            
+            // Display debug info
+            document.getElementById('debug').innerText = JSON.stringify(data, null, 2);
+            document.getElementById('debug').style.display = 'block';
+        }
+    </script>
+</body>
+</html> 

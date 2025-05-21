@@ -1,6 +1,6 @@
 import pdfplumber
 import pytesseract
-from PIL import Image, ImageOps
+from PIL import Image, ImageOps, UnidentifiedImageError
 import os
 import sys
 from app.utils import detect_file_type
@@ -49,10 +49,32 @@ def extract_text_from_image(image_path):
         if not os.path.exists(image_path):
             return f"Error: Image file not found: {image_path}"
         
+        # Check file size to detect non-image files
+        file_size = os.path.getsize(image_path)
+        print(f"Image file size: {file_size} bytes")
+        
+        if file_size < 100:
+            # Try to read the file as text if it's suspiciously small for an image
+            try:
+                with open(image_path, 'r', encoding='utf-8') as f:
+                    content = f.read()
+                    if content and len(content) > 0:
+                        print("File appears to be text, not an image. Returning content as is.")
+                        return content
+            except UnicodeDecodeError:
+                # Not a text file, continue with image processing
+                print("Not a text file, continuing with image processing")
+                pass
+        
         # Try a more robust way to open the image
         try:
             # Open the image using PIL with specific mode
             img = Image.open(image_path).convert('RGB')
+            
+            # Get image details for debugging
+            print(f"Image format: {img.format}")
+            print(f"Image size: {img.size}")
+            print(f"Image mode: {img.mode}")
             
             # Enhance image for better OCR
             img = ImageOps.autocontrast(img)
@@ -64,23 +86,39 @@ def extract_text_from_image(image_path):
             )
             
             if not text or text.strip() == '':
+                # Try a different psm mode
+                print("No text found with first OCR attempt, trying different settings...")
+                text = pytesseract.image_to_string(
+                    img,
+                    config='--psm 6 --oem 3'  # Page segmentation mode 6 (assume a single block of text)
+                )
+            
+            if not text or text.strip() == '':
                 return "Warning: No text was extracted from the image. The image may be blank or not contain readable text."
             
             return text
             
-        except Image.UnidentifiedImageError:
-            # Try opening with different modes
+        except UnidentifiedImageError:
+            print("UnidentifiedImageError: Cannot identify image format")
+            
+            # Check if this is actually a text file with wrong extension
             try:
-                img = Image.open(image_path).convert('L')  # Try grayscale
-                text = pytesseract.image_to_string(img)
-                return text
-            except:
-                return f"Error: Cannot identify image file format for {os.path.basename(image_path)}"
+                with open(image_path, 'r', encoding='utf-8') as f:
+                    content = f.read()
+                    if content and len(content) > 0:
+                        print("File appears to be text, not an image. Returning content as is.")
+                        return content
+            except UnicodeDecodeError:
+                # Not a text file
+                pass
+                
+            return f"Error: Cannot identify image file format for {os.path.basename(image_path)}"
             
     except pytesseract.TesseractNotFoundError:
         return "Error: Tesseract OCR is not installed or not in PATH. Please install Tesseract OCR."
     except Exception as e:
         # Handle any exceptions that might occur during OCR
+        print(f"Error extracting text from image: {str(e)}")
         return f"Error extracting text from image: {str(e)}"
 
 def extract_text_from_txt(txt_path):

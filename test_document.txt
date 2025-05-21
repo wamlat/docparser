@@ -1,0 +1,12 @@
+PURCHASE ORDER
+Order ID: PO-10023
+Customer: NovaTech Industries
+Date: 05/20/2025
+Ship To:
+NovaTech Industries
+1420 Edison Lane
+Austin, TX 73301
+Line Items:
+1. Part #AXL-9920 | Qty: 25 | Unit Price: $12.50
+2. Part #MNT-8833 | Qty: 10 | Unit Price: $44.99
+Subtotal: $837.40 
