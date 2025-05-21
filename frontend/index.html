@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' http://localhost:5000; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data:;">
   <title>Document Parser</title>
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
   <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
@@ -14,28 +15,276 @@
     <h1 class="text-3xl font-bold text-center mb-8">Intelligent Order Document Parser</h1>
     
     <div class="max-w-2xl mx-auto bg-white rounded-lg shadow-md p-6">
-      <div class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center cursor-pointer hover:border-blue-500 transition-colors">
+      <div id="drop-area" class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center cursor-pointer hover:border-blue-500 transition-colors">
         <p class="text-gray-500 mb-2">Drag and drop your document here</p>
         <p class="text-gray-400 text-sm">Supported formats: PDF, PNG, JPG, TXT</p>
-        <button class="mt-4 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded">
-          Or select a file
+        <form id="file-form">
+          <input type="file" id="fileInput" name="file" accept=".pdf,.png,.jpg,.jpeg,.txt" class="hidden" />
+          <button type="button" id="fileSelect" class="mt-4 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded">
+            Or select a file
+          </button>
+        </form>
+      </div>
+      
+      <div class="mt-4 text-center">
+        <button id="uploadBtn" class="mt-4 bg-green-500 hover:bg-green-600 text-white px-6 py-2 rounded" disabled>
+          Upload & Parse
         </button>
       </div>
       
-      <div class="mt-8">
-        <h2 class="text-xl font-semibold mb-4">Extracted Data</h2>
+      <div id="error-message" class="mt-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded hidden"></div>
+      
+      <div id="loading" class="mt-4 text-center hidden">
+        <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+        <p class="mt-2">Processing your document...</p>
+      </div>
+      
+      <div id="extracted-text-container" class="mt-8 hidden">
+        <h2 class="text-xl font-semibold mb-4">Extracted Text</h2>
         <div class="border rounded-lg p-4 bg-gray-50">
-          <p class="text-gray-500 text-center italic">Upload a document to see extracted data</p>
+          <pre id="extracted-text" class="whitespace-pre-wrap text-sm"></pre>
+        </div>
+      </div>
+      
+      <div id="parsed-data-container" class="mt-8 hidden">
+        <h2 class="text-xl font-semibold mb-4">Parsed Data</h2>
+        <div class="border rounded-lg p-4 bg-gray-50" id="parsed-data">
+          <p class="text-gray-500 text-center italic">Processing data...</p>
         </div>
       </div>
     </div>
   </div>
   
   <script>
-    // Placeholder for React application
-    // To be replaced with actual React components
     document.addEventListener('DOMContentLoaded', () => {
-      console.log('Frontend placeholder loaded');
+      const dropArea = document.getElementById('drop-area');
+      const fileInput = document.getElementById('fileInput');
+      const fileSelect = document.getElementById('fileSelect');
+      const uploadBtn = document.getElementById('uploadBtn');
+      const errorMessage = document.getElementById('error-message');
+      const loading = document.getElementById('loading');
+      const extractedTextContainer = document.getElementById('extracted-text-container');
+      const extractedText = document.getElementById('extracted-text');
+      const parsedDataContainer = document.getElementById('parsed-data-container');
+      const parsedData = document.getElementById('parsed-data');
+      
+      let selectedFile = null;
+      
+      // Prevent default drag behaviors
+      ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        dropArea.addEventListener(eventName, preventDefaults, false);
+        document.body.addEventListener(eventName, preventDefaults, false);
+      });
+      
+      // Highlight drop area when dragging a file over it
+      ['dragenter', 'dragover'].forEach(eventName => {
+        dropArea.addEventListener(eventName, highlight, false);
+      });
+      
+      ['dragleave', 'drop'].forEach(eventName => {
+        dropArea.addEventListener(eventName, unhighlight, false);
+      });
+      
+      // Handle dropped files
+      dropArea.addEventListener('drop', handleDrop, false);
+      
+      // Handle file selection via button
+      fileSelect.addEventListener('click', () => {
+        fileInput.click();
+      });
+      
+      fileInput.addEventListener('change', handleFiles);
+      
+      uploadBtn.addEventListener('click', uploadFile);
+      
+      function preventDefaults(e) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+      
+      function highlight() {
+        dropArea.classList.add('border-blue-500');
+        dropArea.classList.remove('border-gray-300');
+      }
+      
+      function unhighlight() {
+        dropArea.classList.remove('border-blue-500');
+        dropArea.classList.add('border-gray-300');
+      }
+      
+      function handleDrop(e) {
+        const dt = e.dataTransfer;
+        const files = dt.files;
+        handleFiles({target: {files}});
+      }
+      
+      function handleFiles(e) {
+        const files = e.target.files;
+        if (files.length) {
+          selectedFile = files[0];
+          dropArea.querySelector('p').textContent = `Selected file: ${selectedFile.name}`;
+          uploadBtn.disabled = false;
+          errorMessage.classList.add('hidden');
+        }
+      }
+      
+      async function uploadFile() {
+        if (!selectedFile) {
+          showError('Please select a file first.');
+          return;
+        }
+        
+        const formData = new FormData();
+        formData.append('file', selectedFile);
+        
+        try {
+          // Show loading
+          loading.classList.remove('hidden');
+          uploadBtn.disabled = true;
+          
+          // Upload the file
+          const uploadResponse = await fetch('http://localhost:5000/upload', {
+            method: 'POST',
+            body: formData
+          });
+          
+          if (!uploadResponse.ok) {
+            throw new Error(`Upload failed: ${uploadResponse.statusText}`);
+          }
+          
+          const uploadData = await uploadResponse.json();
+          console.log('Upload response:', uploadData);
+          
+          // Display extracted text
+          if (uploadData.extraction && uploadData.extraction.text) {
+            extractedText.textContent = uploadData.extraction.text;
+            extractedTextContainer.classList.remove('hidden');
+          }
+          
+          // Parse the document
+          const parseResponse = await fetch('http://localhost:5000/parse');
+          
+          if (!parseResponse.ok) {
+            throw new Error(`Parse failed: ${parseResponse.statusText}`);
+          }
+          
+          const parseData = await parseResponse.json();
+          console.log('Parse response:', parseData);
+          
+          // Display parsed data
+          if (parseData.parsed_data) {
+            displayParsedData(parseData.parsed_data);
+            parsedDataContainer.classList.remove('hidden');
+          }
+          
+        } catch (error) {
+          console.error('Error:', error);
+          showError(error.message || 'An error occurred during processing');
+        } finally {
+          loading.classList.add('hidden');
+          uploadBtn.disabled = false;
+        }
+      }
+      
+      function showError(message) {
+        errorMessage.textContent = message;
+        errorMessage.classList.remove('hidden');
+      }
+      
+      function displayParsedData(data) {
+        // Create HTML for the parsed data
+        let html = `
+          <div class="grid grid-cols-2 gap-4 mb-4">
+            <div class="p-2 border rounded ${getWarningClass(data.extraction_details?.customer)}">
+              <strong>Customer:</strong> ${data.customer}
+              ${getWarningBadge(data.extraction_details?.customer)}
+            </div>
+            <div class="p-2 border rounded ${getWarningClass(data.extraction_details?.order_id)}">
+              <strong>Order ID:</strong> ${data.order_id}
+              ${getWarningBadge(data.extraction_details?.order_id)}
+            </div>
+            <div class="p-2 border rounded col-span-2 ${getWarningClass(data.extraction_details?.shipping_address)}">
+              <strong>Shipping Address:</strong> ${data.shipping_address}
+              ${getWarningBadge(data.extraction_details?.shipping_address)}
+            </div>
+          </div>
+          
+          <h3 class="font-semibold mb-2">Line Items</h3>
+          <table class="w-full border-collapse">
+            <thead>
+              <tr class="bg-gray-200">
+                <th class="border p-2 text-left">SKU</th>
+                <th class="border p-2 text-left">Quantity</th>
+                <th class="border p-2 text-left">Price</th>
+              </tr>
+            </thead>
+            <tbody>
+        `;
+        
+        data.line_items.forEach((item, index) => {
+          const details = data.extraction_details?.line_items[index];
+          html += `
+            <tr>
+              <td class="border p-2 ${getWarningClass(details?.sku)}">
+                ${item.sku}
+                ${getWarningBadge(details?.sku)}
+              </td>
+              <td class="border p-2 ${getWarningClass(details?.quantity)}">
+                ${item.quantity}
+                ${getWarningBadge(details?.quantity)}
+              </td>
+              <td class="border p-2 ${getWarningClass(details?.price)}">
+                $${Number(item.price).toFixed(2)}
+                ${getWarningBadge(details?.price)}
+              </td>
+            </tr>
+          `;
+        });
+        
+        html += `
+            </tbody>
+          </table>
+          
+          <div class="mt-4">
+            <strong>Overall Confidence:</strong> 
+            <div class="w-full bg-gray-200 rounded-full h-2.5 mt-1">
+              <div 
+                class="h-2.5 rounded-full ${getConfidenceColorClass(data.confidence.overall)}"
+                style="width: ${data.confidence.overall * 100}%"
+              ></div>
+            </div>
+            <div class="text-right text-sm text-gray-500">
+              ${(data.confidence.overall * 100).toFixed(0)}%
+            </div>
+          </div>
+          
+          <div class="mt-4 flex justify-end">
+            <a 
+              href="http://localhost:5000/download"
+              class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded"
+              target="_blank"
+            >
+              Download JSON
+            </a>
+          </div>
+        `;
+        
+        parsedData.innerHTML = html;
+      }
+      
+      function getWarningClass(field) {
+        return field?.warning ? 'bg-yellow-100 border-yellow-300' : '';
+      }
+      
+      function getWarningBadge(field) {
+        return field?.warning ? '<span class="ml-2 text-yellow-600 text-xs">⚠️ Low confidence</span>' : '';
+      }
+      
+      function getConfidenceColorClass(confidence) {
+        if (confidence >= 0.8) return 'bg-green-500';
+        if (confidence >= 0.6) return 'bg-yellow-500';
+        return 'bg-red-500';
+      }
     });
   </script>
 </body>

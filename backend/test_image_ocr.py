@@ -1,75 +1,100 @@
-from app.ocr import extract_text_from_image
 import os
-from PIL import Image, ImageDraw, ImageFont
-import pytesseract
 import sys
+import pytesseract
+from PIL import Image, ImageOps
+import argparse
 
-def create_test_image(image_path):
-    """Create a test image with order text."""
-    # Create a white image
-    img = Image.new('RGB', (800, 600), color='white')
-    d = ImageDraw.Draw(img)
+# Set Tesseract path for Windows
+if sys.platform.startswith('win'):
+    pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+
+def test_image_ocr(image_path):
+    """Test OCR on a single image file."""
+    print(f"Testing OCR on image: {image_path}")
     
-    # Try to use a default font
+    if not os.path.exists(image_path):
+        print(f"Error: Image file not found: {image_path}")
+        return
+    
     try:
-        font = ImageFont.truetype("arial.ttf", 20)
-    except IOError:
-        # If the font is not available, use the default
-        font = ImageFont.load_default()
-    
-    # Add text to the image
-    d.text((50, 50), "Test Order Document", fill='black', font=font)
-    d.text((50, 80), "Order ID: IMG-456", fill='black', font=font)
-    d.text((50, 110), "Customer: Robert Johnson", fill='black', font=font)
-    d.text((50, 140), "Items:", fill='black', font=font)
-    d.text((70, 170), "SKU: IMG-001, Quantity: 5, Price: $15.00", fill='black', font=font)
-    d.text((70, 200), "SKU: IMG-002, Quantity: 2, Price: $30.25", fill='black', font=font)
-    d.text((50, 230), "Shipping Address: 789 Pine St, Elsewhere, USA 67890", fill='black', font=font)
-    
-    # Save the image
-    img.save(image_path)
+        print("Attempting to open and process image...")
+        
+        # Try different methods
+        methods = [
+            ("RGB", "Default"),
+            ("L", "Grayscale"),
+            ("1", "Black and White"),
+            ("RGB", "Auto Contrast")
+        ]
+        
+        for mode, desc in methods:
+            print(f"\nTrying {desc} mode ({mode})...")
+            try:
+                # Open image
+                img = Image.open(image_path).convert(mode)
+                
+                # Apply enhancement for auto contrast method
+                if desc == "Auto Contrast":
+                    img = ImageOps.autocontrast(img)
+                    print("  - Applied auto contrast")
+                
+                # Save a copy for debugging
+                debug_dir = "debug_images"
+                os.makedirs(debug_dir, exist_ok=True)
+                debug_path = os.path.join(debug_dir, f"{os.path.splitext(os.path.basename(image_path))[0]}_{desc}.png")
+                img.save(debug_path)
+                print(f"  - Saved debug image to {debug_path}")
+                
+                # Process with different PSM modes
+                psm_modes = [3, 6, 4, 1]
+                
+                for psm in psm_modes:
+                    print(f"  - Using PSM mode {psm}...")
+                    text = pytesseract.image_to_string(
+                        img,
+                        config=f'--psm {psm} --oem 3'
+                    )
+                    
+                    # Show preview of extracted text
+                    preview = text.strip()[:100] + "..." if len(text.strip()) > 100 else text.strip()
+                    print(f"    Result: {'No text extracted' if not preview else preview}")
+                    print(f"    Text length: {len(text.strip())}")
+                
+            except Exception as e:
+                print(f"  - Error with {desc} mode: {str(e)}")
+        
+    except Exception as e:
+        print(f"Overall error: {str(e)}")
 
-def is_tesseract_installed():
-    """Check if Tesseract is installed and accessible."""
-    try:
-        pytesseract.get_tesseract_version()
-        return True
-    except pytesseract.TesseractNotFoundError:
-        return False
-
-def test_image_ocr():
-    # Check if Tesseract is installed
-    if not is_tesseract_installed():
-        print("Tesseract OCR is not installed or not in PATH.")
-        print("Please install Tesseract OCR and make sure it's in your PATH.")
-        print("Download from: https://github.com/UB-Mannheim/tesseract/wiki")
-        return False
+def main():
+    parser = argparse.ArgumentParser(description='Test OCR on image files')
+    parser.add_argument('image_path', nargs='?', help='Path to the image file to test')
     
-    # Path to sample documents directory
-    sample_docs_dir = os.path.join('data', 'sample_docs')
+    args = parser.parse_args()
     
-    # Create test image
-    image_file = os.path.join(sample_docs_dir, 'test_order.png')
-    create_test_image(image_file)
+    # If no image path is provided, check if there are images in the data directory
+    if not args.image_path:
+        data_dirs = [
+            os.path.join('data', 'temp'),
+            os.path.join('data', 'sample_docs'),
+            'data'
+        ]
+        
+        for data_dir in data_dirs:
+            if os.path.exists(data_dir):
+                print(f"Looking for images in {data_dir}...")
+                for file in os.listdir(data_dir):
+                    if file.lower().endswith(('.png', '.jpg', '.jpeg')):
+                        image_path = os.path.join(data_dir, file)
+                        print(f"Found image: {image_path}")
+                        test_image_ocr(image_path)
+                        return
+        
+        print("No image path provided and no images found in default directories.")
+        print("Usage: python test_image_ocr.py [path_to_image]")
+        return
     
-    print(f"Created test image at {image_file}")
-    print("\nExtracting text from image using OCR...")
-    
-    # Extract text from the image
-    extracted_text = extract_text_from_image(image_file)
-    
-    print("\nExtracted Text:")
-    print("-" * 50)
-    print(extracted_text)
-    print("-" * 50)
-    
-    # Basic verification (will depend on OCR quality)
-    success = any(keyword in extracted_text for keyword in 
-                 ["Order", "IMG", "Robert", "Johnson"])
-    
-    print(f"\nExtraction {'successful' if success else 'failed'}")
-    
-    return success
+    test_image_ocr(args.image_path)
 
 if __name__ == "__main__":
-    test_image_ocr() 
+    main() 

@@ -1,0 +1,77 @@
+{
+  "customer": "Robert Johnson",
+  "order_id": "DOCUMENT",
+  "shipping_address": "789 Pine St, Elsewhere, USA 67890",
+  "line_items": [
+    {
+      "sku": "IMG-001",
+      "quantity": 5,
+      "price": 15.0
+    },
+    {
+      "sku": "IMG-002",
+      "quantity": 2,
+      "price": 30.25
+    }
+  ],
+  "confidence": {
+    "customer": 0.95,
+    "order_id": 0.95,
+    "shipping_address": 0.95,
+    "line_items": 0.95,
+    "overall": 0.95
+  },
+  "extraction_details": {
+    "customer": {
+      "value": "Robert Johnson",
+      "confidence": 0.95,
+      "source": "regex"
+    },
+    "order_id": {
+      "value": "DOCUMENT",
+      "confidence": 0.95,
+      "source": "regex"
+    },
+    "shipping_address": {
+      "value": "789 Pine St, Elsewhere, USA 67890",
+      "confidence": 0.95,
+      "source": "regex"
+    },
+    "line_items": [
+      {
+        "sku": {
+          "value": "IMG-001",
+          "confidence": 0.95,
+          "source": "regex"
+        },
+        "quantity": {
+          "value": 5,
+          "confidence": 0.95,
+          "source": "regex"
+        },
+        "price": {
+          "value": 15.0,
+          "confidence": 0.95,
+          "source": "regex"
+        }
+      },
+      {
+        "sku": {
+          "value": "IMG-002",
+          "confidence": 0.95,
+          "source": "regex"
+        },
+        "quantity": {
+          "value": 2,
+          "confidence": 0.95,
+          "source": "regex"
+        },
+        "price": {
+          "value": 30.25,
+          "confidence": 0.95,
+          "source": "regex"
+        }
+      }
+    ]
+  }
+}

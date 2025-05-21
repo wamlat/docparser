@@ -40,29 +40,54 @@ def upload_file():
         return jsonify({"error": "No selected file"}), 400
     
     if file and allowed_file(file.filename):
-        # Generate a unique filename to avoid collisions
-        file_extension = file.filename.rsplit('.', 1)[1].lower()
-        unique_filename = f"{str(uuid.uuid4())}.{file_extension}"
-        
-        # Save the file to the upload folder
-        file_path = os.path.join(UPLOAD_FOLDER, unique_filename)
-        file.save(file_path)
-        
-        # Extract text from the uploaded file
-        extraction_result = extract_text(file_path)
-        
-        return jsonify({
-            "message": "File uploaded successfully",
-            "filename": unique_filename,
-            "original_filename": file.filename,
-            "file_path": file_path,
-            "extraction": {
-                "success": extraction_result['success'],
-                "file_type": extraction_result['file_type'],
-                "text": extraction_result['text'][:1000] + "..." if len(extraction_result['text']) > 1000 else extraction_result['text'],
-                "error": extraction_result['error']
-            }
-        }), 201
+        try:
+            # Check if file has actual content
+            file_content = file.read()
+            if not file_content:
+                return jsonify({"error": "Uploaded file is empty"}), 400
+            
+            # Validate file by extension
+            file_extension = file.filename.rsplit('.', 1)[1].lower()
+            
+            # Basic validation for images and PDFs
+            if file_extension in ['png', 'jpg', 'jpeg']:
+                # Try to validate image format by checking the magic bytes
+                if not file_content.startswith(b'\x89PNG') and not file_content.startswith(b'\xff\xd8\xff'):
+                    return jsonify({"error": "Invalid image format. File does not appear to be a valid image."}), 400
+            
+            elif file_extension == 'pdf':
+                # Check for PDF signature
+                if not file_content.startswith(b'%PDF-'):
+                    return jsonify({"error": "Invalid PDF format. File does not appear to be a valid PDF."}), 400
+            
+            # Reset the file pointer to the beginning for saving
+            file.seek(0)
+            
+            # Generate a unique filename to avoid collisions
+            unique_filename = f"{str(uuid.uuid4())}.{file_extension}"
+            
+            # Save the file to the upload folder
+            file_path = os.path.join(UPLOAD_FOLDER, unique_filename)
+            file.save(file_path)
+            
+            # Extract text from the uploaded file
+            extraction_result = extract_text(file_path)
+            
+            return jsonify({
+                "message": "File uploaded successfully",
+                "filename": unique_filename,
+                "original_filename": file.filename,
+                "file_path": file_path,
+                "extraction": {
+                    "success": extraction_result['success'],
+                    "file_type": extraction_result['file_type'],
+                    "text": extraction_result['text'][:1000] + "..." if len(extraction_result['text']) > 1000 else extraction_result['text'],
+                    "error": extraction_result['error']
+                }
+            }), 201
+            
+        except Exception as e:
+            return jsonify({"error": f"Error processing file: {str(e)}"}), 500
     
     return jsonify({"error": "File type not allowed"}), 400
 

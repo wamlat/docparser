@@ -1,8 +1,13 @@
 import pdfplumber
 import pytesseract
-from PIL import Image
+from PIL import Image, ImageOps
 import os
+import sys
 from app.utils import detect_file_type
+
+# Set Tesseract path for Windows
+if sys.platform.startswith('win'):
+    pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
 def extract_text_from_pdf(pdf_path):
     """
@@ -38,13 +43,40 @@ def extract_text_from_image(image_path):
         str: Extracted text from the image
     """
     try:
-        # Open the image using PIL
-        img = Image.open(image_path)
+        print(f"Processing image: {image_path}")
         
-        # Use pytesseract to extract text
-        text = pytesseract.image_to_string(img)
+        # Check if file exists
+        if not os.path.exists(image_path):
+            return f"Error: Image file not found: {image_path}"
         
-        return text
+        # Try a more robust way to open the image
+        try:
+            # Open the image using PIL with specific mode
+            img = Image.open(image_path).convert('RGB')
+            
+            # Enhance image for better OCR
+            img = ImageOps.autocontrast(img)
+            
+            # Use pytesseract to extract text with improved configuration
+            text = pytesseract.image_to_string(
+                img,
+                config='--psm 3 --oem 3'  # Page segmentation mode 3, OCR Engine mode 3
+            )
+            
+            if not text or text.strip() == '':
+                return "Warning: No text was extracted from the image. The image may be blank or not contain readable text."
+            
+            return text
+            
+        except Image.UnidentifiedImageError:
+            # Try opening with different modes
+            try:
+                img = Image.open(image_path).convert('L')  # Try grayscale
+                text = pytesseract.image_to_string(img)
+                return text
+            except:
+                return f"Error: Cannot identify image file format for {os.path.basename(image_path)}"
+            
     except pytesseract.TesseractNotFoundError:
         return "Error: Tesseract OCR is not installed or not in PATH. Please install Tesseract OCR."
     except Exception as e:
@@ -64,6 +96,13 @@ def extract_text_from_txt(txt_path):
     try:
         with open(txt_path, 'r', encoding='utf-8') as file:
             return file.read()
+    except UnicodeDecodeError:
+        # Try different encodings if UTF-8 fails
+        try:
+            with open(txt_path, 'r', encoding='latin-1') as file:
+                return file.read()
+        except Exception as e:
+            return f"Error reading text file with alternative encoding: {str(e)}"
     except Exception as e:
         # Handle any exceptions that might occur when reading the file
         return f"Error reading text file: {str(e)}"
@@ -92,6 +131,17 @@ def extract_text(file_path):
     }
     
     try:
+        # Check if file exists
+        if not os.path.exists(file_path):
+            result['error'] = f"File not found: {file_path}"
+            return result
+        
+        # Get file size
+        file_size = os.path.getsize(file_path)
+        if file_size == 0:
+            result['error'] = f"File is empty: {file_path}"
+            return result
+            
         # Detect file type
         file_type = detect_file_type(file_path)
         result['file_type'] = file_type
@@ -113,6 +163,10 @@ def extract_text(file_path):
         # Check if extraction was successful
         if not result['success']:
             result['error'] = result['text']
+        
+        # If text is empty but no error occurred, set a warning
+        if result['success'] and not result['text'].strip():
+            result['text'] = "No text content could be extracted from this file."
         
     except Exception as e:
         result['error'] = str(e)
