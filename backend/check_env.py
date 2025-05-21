@@ -20,7 +20,7 @@ CONFIDENCE_THRESHOLD=0.6
 LLM_MODEL=gpt-3.5-turbo
 LLM_TEMPERATURE=0.2
 LLM_MAX_TOKENS=1000
-LLM_CONFIDENCE=0.85
+LLM_BASE_CONFIDENCE=0.8
 """)
 
 # Load environment variables from .env file
@@ -70,6 +70,17 @@ print(f"CONFIDENCE_THRESHOLD: {os.environ.get('CONFIDENCE_THRESHOLD', 'Not set')
 print(f"LLM_MODEL: {os.environ.get('LLM_MODEL', 'Not set')}")
 print(f"LLM_TEMPERATURE: {os.environ.get('LLM_TEMPERATURE', 'Not set')}")
 print(f"LLM_MAX_TOKENS: {os.environ.get('LLM_MAX_TOKENS', 'Not set')}")
-print(f"LLM_CONFIDENCE: {os.environ.get('LLM_CONFIDENCE', 'Not set')}")
+print(f"LLM_BASE_CONFIDENCE: {os.environ.get('LLM_BASE_CONFIDENCE', 'Not set')}")
 
-print("\nChanges have been applied. Please restart the application for them to take effect.") 
+print("\nChanges have been applied. Please restart the application for them to take effect.")
+
+def check_environment_variables():
+    # Check if environment variables are set
+    print("Checking environment variables...")
+    print(f"OPENAI_API_KEY: {'Set' if os.environ.get('OPENAI_API_KEY') else 'Not set'}")
+    print(f"USE_LLM_PARSER: {os.environ.get('USE_LLM_PARSER', 'Not set')}")
+    print(f"LLM_MODEL: {os.environ.get('LLM_MODEL', 'Not set')}")
+    print(f"LLM_TEMPERATURE: {os.environ.get('LLM_TEMPERATURE', 'Not set')}")
+    print(f"LLM_MAX_TOKENS: {os.environ.get('LLM_MAX_TOKENS', 'Not set')}")
+    print(f"LLM_BASE_CONFIDENCE: {os.environ.get('LLM_BASE_CONFIDENCE', 'Not set')}")
+    print(f"CONFIDENCE_THRESHOLD: {os.environ.get('CONFIDENCE_THRESHOLD', 'Not set')}") 

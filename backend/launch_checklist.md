@@ -42,9 +42,9 @@ This checklist covers everything you need to know to get the document parser up 
 | `OPENAI_API_KEY` | **REQUIRED**: Your OpenAI API key for LLM parsing | None |
 | `USE_LLM_PARSER` | Whether to use LLM for all documents | `true` |
 | `LLM_MODEL` | OpenAI model to use | `gpt-3.5-turbo` |
-| `LLM_TEMPERATURE` | Temperature for LLM responses | `0.2` |
-| `LLM_MAX_TOKENS` | Maximum tokens for LLM responses | `1000` |
-| `LLM_CONFIDENCE` | Confidence level assigned to LLM results | `0.85` |
+| `LLM_TEMPERATURE` | Temperature setting for OpenAI API (0-1) | `0.2` |
+| `LLM_MAX_TOKENS` | Maximum tokens in LLM response | `1000` |
+| `LLM_BASE_CONFIDENCE` | Base confidence level for LLM results (adjusted dynamically) | `0.8` |
 | `CONFIDENCE_THRESHOLD` | Threshold below which to use LLM fallback | `0.6` |
 
 ## Known Limitations

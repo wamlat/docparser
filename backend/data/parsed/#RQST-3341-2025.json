@@ -1,0 +1,100 @@
+{
+  "customer": "EonTech Solutions",
+  "order_id": "#RQST-3341-2025",
+  "shipping_address": "Lab Ops East, Dock #7, 1429 Vortex Plaza, Rm 22C, Raleigh NC 27606",
+  "line_items": [
+    {
+      "sku": "CAT-440",
+      "quantity": 2,
+      "price": 1240.5
+    },
+    {
+      "sku": "SNK-99812",
+      "quantity": 4,
+      "price": 72.0
+    },
+    {
+      "sku": "REPL-1290",
+      "quantity": 6,
+      "price": 49.99
+    }
+  ],
+  "confidence": {
+    "customer": 0.885,
+    "order_id": 0.885,
+    "shipping_address": 0.885,
+    "line_items": 0.8850000000000001,
+    "overall": 0.8850000000000002
+  },
+  "extraction_details": {
+    "customer": {
+      "value": "EonTech Solutions",
+      "confidence": 0.885,
+      "source": "llm"
+    },
+    "order_id": {
+      "value": "#RQST-3341-2025",
+      "confidence": 0.885,
+      "source": "llm"
+    },
+    "shipping_address": {
+      "value": "Lab Ops East, Dock #7, 1429 Vortex Plaza, Rm 22C, Raleigh NC 27606",
+      "confidence": 0.885,
+      "source": "llm"
+    },
+    "line_items": [
+      {
+        "sku": {
+          "value": "CAT-440",
+          "confidence": 0.885,
+          "source": "llm"
+        },
+        "quantity": {
+          "value": 2,
+          "confidence": 0.885,
+          "source": "llm"
+        },
+        "price": {
+          "value": 1240.5,
+          "confidence": 0.885,
+          "source": "llm"
+        }
+      },
+      {
+        "sku": {
+          "value": "SNK-99812",
+          "confidence": 0.885,
+          "source": "llm"
+        },
+        "quantity": {
+          "value": 4,
+          "confidence": 0.885,
+          "source": "llm"
+        },
+        "price": {
+          "value": 72.0,
+          "confidence": 0.885,
+          "source": "llm"
+        }
+      },
+      {
+        "sku": {
+          "value": "REPL-1290",
+          "confidence": 0.885,
+          "source": "llm"
+        },
+        "quantity": {
+          "value": 6,
+          "confidence": 0.885,
+          "source": "llm"
+        },
+        "price": {
+          "value": 49.99,
+          "confidence": 0.885,
+          "source": "llm"
+        }
+      }
+    ]
+  },
+  "source": "llm"
+}

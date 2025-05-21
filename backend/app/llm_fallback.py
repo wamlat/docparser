@@ -22,7 +22,9 @@ DEFAULT_MODEL = "gpt-3.5-turbo"
 LLM_MODEL = os.environ.get("LLM_MODEL", DEFAULT_MODEL)
 LLM_TEMPERATURE = float(os.environ.get("LLM_TEMPERATURE", "0.2"))
 LLM_MAX_TOKENS = int(os.environ.get("LLM_MAX_TOKENS", "1000"))
-LLM_CONFIDENCE = float(os.environ.get("LLM_CONFIDENCE", "0.85"))
+
+# Base LLM confidence that will be adjusted dynamically
+LLM_BASE_CONFIDENCE = float(os.environ.get("LLM_BASE_CONFIDENCE", "0.8"))
 
 def get_prompt_template():
     """
@@ -213,13 +215,66 @@ def create_empty_result_with_error(error_message):
     }
     return result
 
+def calculate_dynamic_confidence(model, has_order_id, has_customer, has_address, line_items_count):
+    """
+    Calculate a dynamic confidence score based on the quality and completeness of the extracted data
+    
+    Args:
+        model (str): The LLM model used
+        has_order_id (bool): Whether an order ID was extracted
+        has_customer (bool): Whether a customer name was extracted
+        has_address (bool): Whether a shipping address was extracted
+        line_items_count (int): Number of line items extracted
+        
+    Returns:
+        float: A confidence score between 0.7 and 0.95
+    """
+    # Start with base confidence
+    confidence = LLM_BASE_CONFIDENCE
+    
+    # Adjust based on model - GPT-4 is generally more accurate than GPT-3.5
+    if "gpt-4" in model.lower():
+        confidence += 0.05
+    
+    # Adjust based on completeness - essential fields
+    completeness_score = 0
+    if has_order_id:
+        completeness_score += 0.3
+    if has_customer:
+        completeness_score += 0.2
+    if has_address:
+        completeness_score += 0.2
+    
+    # Adjust based on line items found
+    if line_items_count > 0:
+        # More line items generally indicate better extraction
+        completeness_score += min(0.3, line_items_count * 0.05)
+    
+    # Apply completeness adjustment (normalized)
+    confidence += (completeness_score / 10)
+    
+    # Ensure confidence stays in reasonable bounds (0.7 to 0.95)
+    return max(0.7, min(0.95, confidence))
+
 def create_structured_result(parsed_data):
     """
     Convert the raw parsed data from LLM into the structured format expected by the application.
     Assigns confidence scores to the LLM results.
     """
-    # Base confidence for LLM-generated results
-    llm_confidence = LLM_CONFIDENCE
+    # Calculate dynamic confidence based on extracted content quality
+    has_order_id = bool(parsed_data.get("order_id", ""))
+    has_customer = bool(parsed_data.get("customer", ""))
+    has_address = bool(parsed_data.get("shipping_address", ""))
+    line_items_count = len(parsed_data.get("line_items", []))
+    
+    # Get dynamic confidence value
+    dynamic_confidence = calculate_dynamic_confidence(
+        LLM_MODEL, 
+        has_order_id,
+        has_customer,
+        has_address,
+        line_items_count
+    )
     
     # Create the basic structure
     structured_result = {
@@ -228,26 +283,26 @@ def create_structured_result(parsed_data):
         "shipping_address": parsed_data.get("shipping_address", ""),
         "line_items": [],
         "confidence": {
-            "customer": llm_confidence if parsed_data.get("customer") else 0,
-            "order_id": llm_confidence if parsed_data.get("order_id") else 0,
-            "shipping_address": llm_confidence if parsed_data.get("shipping_address") else 0,
+            "customer": dynamic_confidence if parsed_data.get("customer") else 0,
+            "order_id": dynamic_confidence if parsed_data.get("order_id") else 0,
+            "shipping_address": dynamic_confidence if parsed_data.get("shipping_address") else 0,
             "line_items": 0,
             "overall": 0
         },
         "extraction_details": {
             "customer": {
                 "value": parsed_data.get("customer", ""),
-                "confidence": llm_confidence if parsed_data.get("customer") else 0,
+                "confidence": dynamic_confidence if parsed_data.get("customer") else 0,
                 "source": "llm"
             },
             "order_id": {
                 "value": parsed_data.get("order_id", ""),
-                "confidence": llm_confidence if parsed_data.get("order_id") else 0,
+                "confidence": dynamic_confidence if parsed_data.get("order_id") else 0,
                 "source": "llm"
             },
             "shipping_address": {
                 "value": parsed_data.get("shipping_address", ""),
-                "confidence": llm_confidence if parsed_data.get("shipping_address") else 0,
+                "confidence": dynamic_confidence if parsed_data.get("shipping_address") else 0,
                 "source": "llm"
             },
             "line_items": []
@@ -271,9 +326,9 @@ def create_structured_result(parsed_data):
             
             # Create detailed line item for extraction_details
             detailed_item = {
-                "sku": {"value": item.get("sku", ""), "confidence": llm_confidence, "source": "llm"},
-                "quantity": {"value": item.get("quantity", 0), "confidence": llm_confidence, "source": "llm"},
-                "price": {"value": item.get("price", 0), "confidence": llm_confidence, "source": "llm"}
+                "sku": {"value": item.get("sku", ""), "confidence": dynamic_confidence, "source": "llm"},
+                "quantity": {"value": item.get("quantity", 0), "confidence": dynamic_confidence, "source": "llm"},
+                "price": {"value": item.get("price", 0), "confidence": dynamic_confidence, "source": "llm"}
             }
             
             # Add items to respective lists
@@ -281,22 +336,37 @@ def create_structured_result(parsed_data):
             structured_result["extraction_details"]["line_items"].append(detailed_item)
             
             # Increment confidence
-            line_items_confidence += llm_confidence
+            line_items_confidence += dynamic_confidence
     
     # Calculate final line items confidence
     if line_items:
         structured_result["confidence"]["line_items"] = line_items_confidence / len(line_items)
     
-    # Calculate overall confidence
-    confidence_values = [
-        structured_result["confidence"]["customer"],
-        structured_result["confidence"]["order_id"],
-        structured_result["confidence"]["shipping_address"],
-        structured_result["confidence"]["line_items"]
-    ]
-    non_zero_values = [v for v in confidence_values if v > 0]
+    # Calculate overall confidence with weighted approach
+    # Fields importance: order_id > line_items > customer > shipping_address
+    weights = {
+        "order_id": 1.5,
+        "line_items": 1.3,
+        "customer": 1.0,
+        "shipping_address": 0.8
+    }
     
-    if non_zero_values:
-        structured_result["confidence"]["overall"] = sum(non_zero_values) / len(non_zero_values)
+    confidence_values = {
+        "order_id": structured_result["confidence"]["order_id"],
+        "line_items": structured_result["confidence"]["line_items"],
+        "customer": structured_result["confidence"]["customer"],
+        "shipping_address": structured_result["confidence"]["shipping_address"]
+    }
+    
+    # Calculate weighted confidence
+    weighted_sum = sum(confidence_values[field] * weights[field] for field in confidence_values)
+    total_weight = sum(weights.values())
+    
+    # Adjust confidence based on completeness
+    completeness_factor = sum(1 for field in confidence_values if confidence_values[field] > 0.6) / len(confidence_values)
+    
+    # Calculate final overall confidence
+    if sum(weights.values()) > 0:
+        structured_result["confidence"]["overall"] = (weighted_sum / total_weight) * (0.7 + (completeness_factor * 0.3))
     
     return structured_result 

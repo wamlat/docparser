@@ -1,17 +1,17 @@
 {
-  "customer": "NovaTech Industries",
-  "order_id": "PO-10023",
-  "shipping_address": "1420 Edison Lane, Austin, TX 73301",
+  "customer": "Westbridge MedTech",
+  "order_id": "INV-9217",
+  "shipping_address": "817 Keystone Blvd, R&D Lab - Bay 3, St. Louis, MO 63110",
   "line_items": [
     {
-      "sku": "AXL-9920",
-      "quantity": 25,
-      "price": 12.5
+      "sku": "HRT-7788-B",
+      "quantity": 4,
+      "price": 132.0
     },
     {
-      "sku": "MNT-8833",
-      "quantity": 10,
-      "price": 44.99
+      "sku": "MIX-CAN-203",
+      "quantity": 2,
+      "price": 89.5
     }
   ],
   "confidence": {
@@ -19,55 +19,55 @@
     "order_id": 0.85,
     "shipping_address": 0.85,
     "line_items": 0.85,
-    "overall": 0.85
+    "overall": 0.8500000000000001
   },
   "extraction_details": {
     "customer": {
-      "value": "NovaTech Industries",
+      "value": "Westbridge MedTech",
       "confidence": 0.85,
       "source": "llm"
     },
     "order_id": {
-      "value": "PO-10023",
+      "value": "INV-9217",
       "confidence": 0.85,
       "source": "llm"
     },
     "shipping_address": {
-      "value": "1420 Edison Lane, Austin, TX 73301",
+      "value": "817 Keystone Blvd, R&D Lab - Bay 3, St. Louis, MO 63110",
       "confidence": 0.85,
       "source": "llm"
     },
     "line_items": [
       {
         "sku": {
-          "value": "AXL-9920",
+          "value": "HRT-7788-B",
           "confidence": 0.85,
           "source": "llm"
         },
         "quantity": {
-          "value": 25,
+          "value": 4,
           "confidence": 0.85,
           "source": "llm"
         },
         "price": {
-          "value": 12.5,
+          "value": 132.0,
           "confidence": 0.85,
           "source": "llm"
         }
       },
       {
         "sku": {
-          "value": "MNT-8833",
+          "value": "MIX-CAN-203",
           "confidence": 0.85,
           "source": "llm"
         },
         "quantity": {
-          "value": 10,
+          "value": 2,
           "confidence": 0.85,
           "source": "llm"
         },
         "price": {
-          "value": 44.99,
+          "value": 89.5,
           "confidence": 0.85,
           "source": "llm"
         }

@@ -14,7 +14,7 @@ def create_env_file():
         'LLM_MODEL': 'gpt-3.5-turbo',
         'LLM_TEMPERATURE': '0.2',
         'LLM_MAX_TOKENS': '1000',
-        'LLM_CONFIDENCE': '0.85',
+        'LLM_BASE_CONFIDENCE': '0.8',
         'CONFIDENCE_THRESHOLD': '0.6'
     }
     

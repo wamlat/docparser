@@ -484,14 +484,18 @@ def extract_entities(text):
     # Example: "12x of HTR-1204 @ $32.00"
     informal_items = re.findall(r"(\d+)[xX]\s+of\s+([A-Z0-9\-]+)\s+@\s+\$?(\d+\.?\d*)", text, re.IGNORECASE)
     for qty, sku, price in informal_items:
+        # Calculate dynamic confidence based on SKU complexity
+        # Longer SKUs with mixed characters are more likely to be valid
+        sku_complexity = min(0.95, 0.75 + (len(sku.strip()) * 0.02) + (0.05 if re.search(r'[A-Z]', sku) and re.search(r'[0-9]', sku) else 0))
+        
         # Create line item from informal pattern
         line_item = {
-            "sku": {"value": sku.strip(), "confidence": 0.85, "source": "regex-informal"},
-            "quantity": {"value": int(qty), "confidence": 0.85, "source": "regex-informal"},
-            "price": {"value": float(price), "confidence": 0.85, "source": "regex-informal"}
+            "sku": {"value": sku.strip(), "confidence": sku_complexity, "source": "regex-informal"},
+            "quantity": {"value": int(qty), "confidence": sku_complexity, "source": "regex-informal"},
+            "price": {"value": float(price), "confidence": sku_complexity, "source": "regex-informal"}
         }
         structured_data["line_items"].append(line_item)
-        print(f"Found informal line item: {qty}x of {sku} @ ${price}")
+        print(f"Found informal line item: {qty}x of {sku} @ ${price} (confidence: {sku_complexity:.2f})")
     
     return structured_data
 
@@ -671,8 +675,24 @@ def parse_order_document(text):
         "line_items": sum(item["sku"]["confidence"] for item in structured_data["line_items"]) / max(1, len(structured_data["line_items"]))
     }
     
-    # Add overall confidence
-    confidence["overall"] = sum(confidence.values()) / len(confidence)
+    # Add overall confidence - using weighted calculation for more accuracy
+    # Fields importance: order_id > line_items > customer > shipping_address
+    weights = {
+        "order_id": 1.5,
+        "line_items": 1.3,
+        "customer": 1.0,
+        "shipping_address": 0.8
+    }
+    
+    # Calculate weighted confidence
+    weighted_sum = sum(confidence[field] * weights[field] for field in confidence)
+    total_weight = sum(weights.values())
+    
+    # Adjust confidence based on completeness
+    completeness_factor = sum(1 for field in confidence if confidence[field] > 0.6) / len(confidence)
+    
+    # Final confidence calculation
+    confidence["overall"] = (weighted_sum / total_weight) * (0.7 + (completeness_factor * 0.3))
     
     # Add confidence scores to the output
     flat_output["confidence"] = confidence

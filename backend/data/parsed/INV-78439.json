@@ -1,17 +1,17 @@
 {
-  "customer": "NovaTech Industries",
-  "order_id": "PO-10023",
-  "shipping_address": "1420 Edison Lane, Austin, TX 73301",
+  "customer": "Orion Biomedical Ltd.",
+  "order_id": "INV-78439",
+  "shipping_address": "1900 Innovation Parkway, Suite 318-B, Columbus, OH 43210",
   "line_items": [
     {
-      "sku": "AXL-9920",
-      "quantity": 25,
-      "price": 12.5
+      "sku": "BLD-5592A",
+      "quantity": 7,
+      "price": 154.2
     },
     {
-      "sku": "MNT-8833",
-      "quantity": 10,
-      "price": 44.99
+      "sku": "RSP-KIT-003",
+      "quantity": 3,
+      "price": 89.99
     }
   ],
   "confidence": {
@@ -19,55 +19,55 @@
     "order_id": 0.85,
     "shipping_address": 0.85,
     "line_items": 0.85,
-    "overall": 0.85
+    "overall": 0.8500000000000001
   },
   "extraction_details": {
     "customer": {
-      "value": "NovaTech Industries",
+      "value": "Orion Biomedical Ltd.",
       "confidence": 0.85,
       "source": "llm"
     },
     "order_id": {
-      "value": "PO-10023",
+      "value": "INV-78439",
       "confidence": 0.85,
       "source": "llm"
     },
     "shipping_address": {
-      "value": "1420 Edison Lane, Austin, TX 73301",
+      "value": "1900 Innovation Parkway, Suite 318-B, Columbus, OH 43210",
       "confidence": 0.85,
       "source": "llm"
     },
     "line_items": [
       {
         "sku": {
-          "value": "AXL-9920",
+          "value": "BLD-5592A",
           "confidence": 0.85,
           "source": "llm"
         },
         "quantity": {
-          "value": 25,
+          "value": 7,
           "confidence": 0.85,
           "source": "llm"
         },
         "price": {
-          "value": 12.5,
+          "value": 154.2,
           "confidence": 0.85,
           "source": "llm"
         }
       },
       {
         "sku": {
-          "value": "MNT-8833",
+          "value": "RSP-KIT-003",
           "confidence": 0.85,
           "source": "llm"
         },
         "quantity": {
-          "value": 10,
+          "value": 3,
           "confidence": 0.85,
           "source": "llm"
         },
         "price": {
-          "value": 44.99,
+          "value": 89.99,
           "confidence": 0.85,
           "source": "llm"
         }

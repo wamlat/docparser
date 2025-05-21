@@ -1,17 +1,17 @@
 {
-  "customer": "NovaTech Industries",
-  "order_id": "PO-10023",
-  "shipping_address": "1420 Edison Lane, Austin, TX 73301",
+  "customer": "Greentech Labs",
+  "order_id": "GT-ORDER-4567",
+  "shipping_address": "620 Ocean Blvd, Santa Monica, CA 90401",
   "line_items": [
     {
-      "sku": "AXL-9920",
-      "quantity": 25,
-      "price": 12.5
+      "sku": "HTR-1204",
+      "quantity": 12,
+      "price": 32.0
     },
     {
-      "sku": "MNT-8833",
-      "quantity": 10,
-      "price": 44.99
+      "sku": "UVC-0988",
+      "quantity": 6,
+      "price": 79.99
     }
   ],
   "confidence": {
@@ -19,55 +19,55 @@
     "order_id": 0.85,
     "shipping_address": 0.85,
     "line_items": 0.85,
-    "overall": 0.85
+    "overall": 0.8500000000000001
   },
   "extraction_details": {
     "customer": {
-      "value": "NovaTech Industries",
+      "value": "Greentech Labs",
       "confidence": 0.85,
       "source": "llm"
     },
     "order_id": {
-      "value": "PO-10023",
+      "value": "GT-ORDER-4567",
       "confidence": 0.85,
       "source": "llm"
     },
     "shipping_address": {
-      "value": "1420 Edison Lane, Austin, TX 73301",
+      "value": "620 Ocean Blvd, Santa Monica, CA 90401",
       "confidence": 0.85,
       "source": "llm"
     },
     "line_items": [
       {
         "sku": {
-          "value": "AXL-9920",
+          "value": "HTR-1204",
           "confidence": 0.85,
           "source": "llm"
         },
         "quantity": {
-          "value": 25,
+          "value": 12,
           "confidence": 0.85,
           "source": "llm"
         },
         "price": {
-          "value": 12.5,
+          "value": 32.0,
           "confidence": 0.85,
           "source": "llm"
         }
       },
       {
         "sku": {
-          "value": "MNT-8833",
+          "value": "UVC-0988",
           "confidence": 0.85,
           "source": "llm"
         },
         "quantity": {
-          "value": 10,
+          "value": 6,
           "confidence": 0.85,
           "source": "llm"
         },
         "price": {
-          "value": 44.99,
+          "value": 79.99,
           "confidence": 0.85,
           "source": "llm"
         }

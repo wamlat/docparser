@@ -77,9 +77,9 @@ The LLM fallback parser is controlled by the following environment variables:
 | `OPENAI_API_KEY` | - | Required OpenAI API key |
 | `USE_LLM_PARSER` | true | Set to `true` to always use LLM parser |
 | `LLM_MODEL` | gpt-3.5-turbo | OpenAI model to use (gpt-3.5-turbo recommended) |
-| `LLM_TEMPERATURE` | 0.2 | Temperature setting (0-1) |
-| `LLM_MAX_TOKENS` | 1000 | Maximum tokens in response |
-| `LLM_CONFIDENCE` | 0.85 | Confidence level for LLM results |
+| `LLM_TEMPERATURE` | 0.2 | Temperature setting for LLM (lower is more deterministic) |
+| `LLM_MAX_TOKENS` | 1000 | Maximum number of tokens in LLM response |
+| `LLM_BASE_CONFIDENCE` | 0.8 | Base confidence level for LLM results (adjusted dynamically) |
 | `CONFIDENCE_THRESHOLD` | 0.6 | Threshold below which to use LLM fallback (when `USE_LLM_PARSER=false`) |
 
 ## Rate Limiting and Error Handling
